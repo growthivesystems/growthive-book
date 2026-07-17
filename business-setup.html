@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
 <link rel="stylesheet" href="assets/css/styles.css">
 <style>
   :root{
@@ -331,10 +332,10 @@
 
 <script>
   // ---- Supabase client ----
-  // Assumes assets/js/supabase-client.js exposes a ready client as `window.supabaseClient`
-  // (the same pattern used in register.html / login.html). If your file exports it
-  // differently, adjust this one line to match.
-  const supabase = window.supabaseClient;
+  // supabase-client.js defines a top-level `supabaseClient` variable (not attached
+  // to window), so we reference it directly here — both scripts share the same
+  // global scope since neither is loaded as a module.
+  const supabase = supabaseClient;
 
   let currentStep = 1;
   let serviceIdCounter = 0;
