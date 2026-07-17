@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Book an appointment — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<style>
+  :root{
+    --navy:#0A1F44;
+    --blue:#2563EB;
+    --blue-light:#EFF4FF;
+    --border:#E5E9F0;
+    --text-muted:#6B7280;
+    --text-faint:#9CA3AF;
+    --danger:#DC2626;
+    --danger-bg:#FEF2F2;
+    --success:#059669;
+    --success-bg:#ECFDF5;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:'Inter',Arial,sans-serif;
+    background:#F7F8FA;
+    margin:0;
+    color:var(--navy);
+  }
+  .page-shell{max-width:600px;margin:0 auto;padding:40px 20px 80px;}
+
+  .biz-header{background:#fff;border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px;}
+  .biz-header h1{font-size:22px;margin:0 0 4px;}
+  .biz-category{font-size:13px;color:var(--blue);font-weight:600;margin-bottom:10px;}
+  .biz-description{font-size:14px;color:var(--text-muted);margin-bottom:14px;}
+  .biz-meta{font-size:13px;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:14px;}
+  .biz-meta span{display:flex;align-items:center;gap:5px;}
+
+  .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px;}
+  .card h2{font-size:16px;margin:0 0 16px;}
+
+  .service-option{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;
+    margin-bottom:10px;cursor:pointer;transition:border-color .15s, background .15s;
+  }
+  .service-option:hover{border-color:var(--blue);}
+  .service-option.selected{border-color:var(--blue);background:var(--blue-light);}
+  .service-option .svc-name{font-weight:600;font-size:14.5px;}
+  .service-option .svc-duration{font-size:12.5px;color:var(--text-muted);}
+  .service-option .svc-price{font-weight:700;color:var(--navy);font-size:14.5px;}
+
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;margin-top:16px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=tel], input[type=email], input[type=date], select{
+    width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;
+    font-size:14px;font-family:inherit;color:var(--navy);background:#fff;
+  }
+  input:focus, select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-light);}
+
+  .slot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+  @media(max-width:480px){.slot-grid{grid-template-columns:repeat(2,1fr);}}
+  .slot-btn{
+    padding:10px 6px;border:1.5px solid var(--border);border-radius:8px;background:#fff;
+    font-size:13px;font-weight:600;cursor:pointer;color:var(--navy);
+  }
+  .slot-btn:hover{border-color:var(--blue);}
+  .slot-btn.selected{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .slot-empty{font-size:13.5px;color:var(--text-faint);padding:8px 0;}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:13px 26px;border-radius:10px;font-weight:600;font-size:14px;
+    border:none;cursor:pointer;width:100%;
+  }
+  .btn-primary{background:var(--blue);color:#fff;}
+  .btn-primary:hover{background:#1D4ED8;}
+  .btn-primary:disabled{background:#A9C2F5;cursor:not-allowed;}
+
+  .banner{padding:14px 16px;border-radius:10px;font-size:13.5px;margin-bottom:20px;display:none;}
+  .banner.error{background:var(--danger-bg);color:var(--danger);}
+  .banner.success{background:var(--success-bg);color:var(--success);}
+
+  .state-message{text-align:center;padding:80px 20px;color:var(--text-muted);font-size:14.5px;}
+
+  .confirm-icon{
+    width:56px;height:56px;border-radius:50%;background:var(--success-bg);color:var(--success);
+    display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-shell" id="pageShell">
+  <div class="state-message" id="loadingMessage">Loading booking page...</div>
+</div>
+
+<script>
+  const sb = supabaseClient;
+
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get('b');
+
+  const shell = document.getElementById('pageShell');
+
+  let business = null;
+  let services = [];
+  let selectedService = null;
+  let selectedDate = null;
+  let selectedTime = null;
+
+  const DAY_INDEX_TO_NAME = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+  async function init(){
+    if (!slug){
+      shell.innerHTML = `<div class="state-message">This booking link is missing a business reference. Please double check the link you were given.</div>`;
+      return;
+    }
+
+    const { data: biz, error: bizError } = await sb
+      .from('businesses')
+      .select('*')
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (bizError || !biz){
+      shell.innerHTML = `<div class="state-message">We couldn't find this business. The link may be incorrect or the page may have been removed.</div>`;
+      return;
+    }
+    business = biz;
+
+    const { data: svcs, error: svcError } = await sb
+      .from('services')
+      .select('*')
+      .eq('business_id', business.id)
+      .order('name');
+
+    if (svcError){
+      shell.innerHTML = `<div class="state-message">Something went wrong loading this business's services. Please try again shortly.</div>`;
+      return;
+    }
+    services = svcs || [];
+
+    render();
+  }
+
+  function render(){
+    shell.innerHTML = `
+      <div class="biz-header">
+        <h1>${escapeHtml(business.business_name)}</h1>
+        ${business.category ? `<div class="biz-category">${escapeHtml(business.category)}</div>` : ''}
+        ${business.description ? `<div class="biz-description">${escapeHtml(business.description)}</div>` : ''}
+        <div class="biz-meta">
+          ${business.phone ? `<span>📞 ${escapeHtml(business.phone)}</span>` : ''}
+          ${business.city ? `<span>📍 ${escapeHtml(business.city)}${business.country ? ', ' + escapeHtml(business.country) : ''}</span>` : ''}
+        </div>
+      </div>
+
+      <div class="banner error" id="errorBanner"></div>
+
+      <div class="card">
+        <h2>1. Choose a service</h2>
+        <div id="servicesList"></div>
+      </div>
+
+      <div class="card" id="dateTimeCard" style="display:none;">
+        <h2>2. Choose a date & time</h2>
+        <label>Date</label>
+        <input type="date" id="dateInput">
+        <label>Available times</label>
+        <div class="slot-grid" id="slotGrid"></div>
+      </div>
+
+      <div class="card" id="detailsCard" style="display:none;">
+        <h2>3. Your details</h2>
+        <label>Full name *</label>
+        <input type="text" id="customerName" placeholder="Your name">
+        <label>Phone number *</label>
+        <input type="tel" id="customerPhone" placeholder="080...">
+        <label>Email (optional)</label>
+        <input type="email" id="customerEmail" placeholder="you@example.com">
+        <div style="margin-top:22px;">
+          <button class="btn btn-primary" id="submitBtn" onclick="submitBooking()">Confirm booking</button>
+        </div>
+      </div>
+    `;
+
+    if (services.length === 0){
+      document.getElementById('servicesList').innerHTML =
+        `<div class="slot-empty">This business hasn't added any services yet.</div>`;
+      return;
+    }
+
+    const list = document.getElementById('servicesList');
+    services.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'service-option';
+      el.innerHTML = `
+        <div>
+          <div class="svc-name">${escapeHtml(s.name)}</div>
+          <div class="svc-duration">${s.duration_minutes} min</div>
+        </div>
+        <div class="svc-price">₦${Number(s.price).toLocaleString()}</div>
+      `;
+      el.addEventListener('click', () => selectService(s, el));
+      list.appendChild(el);
+    });
+
+    document.getElementById('dateInput').min = new Date().toISOString().split('T')[0];
+    document.getElementById('dateInput').addEventListener('change', onDateChange);
+  }
+
+  function selectService(service, el){
+    selectedService = service;
+    document.querySelectorAll('.service-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('dateTimeCard').style.display = 'block';
+    document.getElementById('detailsCard').style.display = 'none';
+    selectedTime = null;
+    document.getElementById('slotGrid').innerHTML = '';
+    if (selectedDate) onDateChange();
+  }
+
+  async function onDateChange(){
+    const dateVal = document.getElementById('dateInput').value;
+    selectedDate = dateVal;
+    selectedTime = null;
+    const grid = document.getElementById('slotGrid');
+    grid.innerHTML = '';
+
+    if (!dateVal || !selectedService){
+      return;
+    }
+
+    const dayName = DAY_INDEX_TO_NAME[new Date(dateVal + 'T00:00:00').getDay()];
+    const workingDays = business.working_days || [];
+    const hours = (business.opening_hours || {})[dayName];
+
+    if (!workingDays.includes(dayName) || !hours){
+      grid.innerHTML = `<div class="slot-empty">Closed on this day. Please pick another date.</div>`;
+      return;
+    }
+
+    // Build candidate slots based on opening hours + interval
+    const interval = business.appointment_interval_minutes || 30;
+    const slots = [];
+    let [oh, om] = hours.open.split(':').map(Number);
+    let [ch, cm] = hours.close.split(':').map(Number);
+    let cursor = oh * 60 + om;
+    const closeMinutes = ch * 60 + cm;
+
+    while (cursor + selectedService.duration_minutes <= closeMinutes){
+      const h = Math.floor(cursor / 60).toString().padStart(2, '0');
+      const m = (cursor % 60).toString().padStart(2, '0');
+      slots.push(`${h}:${m}`);
+      cursor += interval;
+    }
+
+    // Check which slots are already booked for this business/date
+    const { data: existingBookings, error } = await sb
+      .from('bookings')
+      .select('booking_time')
+      .eq('business_id', business.id)
+      .eq('booking_date', dateVal)
+      .neq('status', 'cancelled');
+
+    const takenTimes = new Set((existingBookings || []).map(b => b.booking_time.slice(0,5)));
+    const availableSlots = slots.filter(s => !takenTimes.has(s));
+
+    if (availableSlots.length === 0){
+      grid.innerHTML = `<div class="slot-empty">No available times left on this date. Please try another date.</div>`;
+      return;
+    }
+
+    availableSlots.forEach(time => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'slot-btn';
+      btn.textContent = time;
+      btn.addEventListener('click', () => {
+        selectedTime = time;
+        document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        document.getElementById('detailsCard').style.display = 'block';
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  async function submitBooking(){
+    const errorBanner = document.getElementById('errorBanner');
+    errorBanner.style.display = 'none';
+
+    const name = document.getElementById('customerName').value.trim();
+    const phone = document.getElementById('customerPhone').value.trim();
+    const email = document.getElementById('customerEmail').value.trim();
+
+    if (!selectedService || !selectedDate || !selectedTime){
+      showBookingError('Please choose a service, date, and time first.');
+      return;
+    }
+    if (!name || !phone){
+      showBookingError('Please enter your name and phone number.');
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Booking...';
+
+    const status = business.booking_approval === 'manual' ? 'pending' : 'confirmed';
+
+    const { error } = await sb.from('bookings').insert({
+      business_id: business.id,
+      service_id: selectedService.id,
+      customer_name: name,
+      customer_phone: phone,
+      customer_email: email || null,
+      booking_date: selectedDate,
+      booking_time: selectedTime,
+      status: status
+    });
+
+    if (error){
+      // Most likely cause: someone else booked this exact slot a moment ago.
+      showBookingError('That slot was just taken, or something went wrong: ' + error.message + '. Please pick another time.');
+      btn.disabled = false;
+      btn.textContent = 'Confirm booking';
+      return;
+    }
+
+    showConfirmation(status);
+  }
+
+  function showBookingError(msg){
+    const errorBanner = document.getElementById('errorBanner');
+    errorBanner.textContent = msg;
+    errorBanner.style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function showConfirmation(status){
+    const message = status === 'pending'
+      ? "Your request has been sent. The business will confirm it shortly."
+      : "Your appointment is confirmed. See you then!";
+
+    shell.innerHTML = `
+      <div class="card" style="text-align:center;">
+        <div class="confirm-icon">✓</div>
+        <h1 style="margin-bottom:8px;">Booking received</h1>
+        <p style="color:var(--text-muted);margin-bottom:4px;">${message}</p>
+        <p style="color:var(--text-muted);font-size:13.5px;">
+          ${escapeHtml(selectedService.name)} with ${escapeHtml(business.business_name)}<br>
+          ${selectedDate} at ${selectedTime}
+        </p>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  init();
+</script>
+
+</body>
+</html>
