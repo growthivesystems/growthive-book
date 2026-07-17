@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -335,7 +335,10 @@
   // supabase-client.js defines a top-level `supabaseClient` variable (not attached
   // to window), so we reference it directly here — both scripts share the same
   // global scope since neither is loaded as a module.
-  const supabase = supabaseClient;
+  // Named `sb` (not `supabase`) because the Supabase CDN script itself already
+  // creates a global called `supabase` — reusing that name causes a fatal
+  // "already been declared" error that silently breaks the whole page.
+  const sb = supabaseClient;
 
   let currentStep = 1;
   let serviceIdCounter = 0;
@@ -513,7 +516,7 @@
     btn.textContent = 'Creating your booking page...';
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await sb.auth.getUser();
       if (userError || !user){
         showError('Your session has expired — please log in again.');
         btn.disabled = false;
@@ -525,7 +528,7 @@
       let slug = baseSlug;
 
       // Insert business row
-      const { data: business, error: bizError } = await supabase
+      const { data: business, error: bizError } = await sb
         .from('businesses')
         .insert({
           owner_id: user.id,
@@ -570,7 +573,7 @@
         price: s.price,
         duration_minutes: s.duration_minutes
       }));
-      const { error: servicesError } = await supabase.from('services').insert(servicesPayload);
+      const { error: servicesError } = await sb.from('services').insert(servicesPayload);
 
       if (servicesError){
         showError('Business created, but services failed to save: ' + servicesError.message);
