@@ -54,6 +54,13 @@
   .stat-box .num{font-size:26px;font-weight:800;}
   .stat-box .label{font-size:12.5px;color:var(--text-muted);margin-top:2px;}
 
+  .page-tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .page-tab-btn{
+    padding:11px 20px;border-radius:10px;border:1px solid var(--border);background:#fff;
+    font-size:14px;font-weight:700;cursor:pointer;color:var(--text-muted);
+  }
+  .page-tab-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+
   .tabs{display:flex;gap:8px;margin-bottom:16px;}
   .tab-btn{
     padding:9px 16px;border-radius:8px;border:1px solid var(--border);background:#fff;
@@ -84,6 +91,56 @@
 
   .empty-state{text-align:center;padding:40px 20px;color:var(--text-faint);font-size:14px;}
   .loading-state{text-align:center;padding:80px 20px;color:var(--text-muted);}
+
+  .card h2{font-size:16px;margin:0 0 18px;}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;margin-top:16px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=tel], input[type=number], input[type=time], select, textarea{
+    width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:9px;
+    font-size:14px;font-family:inherit;color:var(--navy);background:#fff;
+  }
+  input:focus, select:focus, textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-light);}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:520px){.row-2{grid-template-columns:1fr;}}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px 22px;border-radius:9px;font-weight:700;font-size:13.5px;
+    border:none;cursor:pointer;
+  }
+  .btn-primary{background:var(--blue);color:#fff;}
+  .btn-primary:hover{background:#1D4ED8;}
+  .btn-primary:disabled{background:#A9C2F5;cursor:not-allowed;}
+
+  .save-banner{padding:12px 14px;border-radius:9px;font-size:13.5px;margin-bottom:18px;display:none;}
+  .save-banner.error{background:var(--danger-bg);color:var(--danger);}
+  .save-banner.success{background:var(--success-bg);color:var(--success);}
+
+  .service-edit-row{
+    display:flex;gap:10px;align-items:flex-end;padding:14px;border:1px solid var(--border);
+    border-radius:10px;margin-bottom:10px;
+  }
+  .service-edit-row .field{flex:1;}
+  .service-edit-row .field.small{flex:0 0 90px;}
+  .service-edit-row label{margin-top:0;font-size:11px;color:var(--text-muted);}
+  .remove-service-btn{
+    background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;
+    padding:11px 4px;font-weight:600;
+  }
+  .add-service-btn{
+    width:100%;padding:11px;border:1.5px dashed var(--border);border-radius:10px;
+    background:none;color:var(--blue);font-weight:600;font-size:13.5px;cursor:pointer;margin-bottom:16px;
+  }
+  .add-service-btn:hover{background:var(--blue-light);}
+
+  .day-row{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--border);}
+  .day-row:last-child{border-bottom:none;}
+  .day-check{display:flex;align-items:center;gap:8px;width:120px;flex-shrink:0;font-size:13.5px;font-weight:600;}
+  .day-check input{width:17px;height:17px;accent-color:var(--blue);}
+  .day-times{display:flex;gap:8px;align-items:center;flex:1;}
+  .day-times input{padding:8px 10px;font-size:13px;}
+  .day-times span{color:var(--text-faint);font-size:13px;}
+  .day-row.disabled .day-times{opacity:0.35;pointer-events:none;}
 </style>
 </head>
 <body>
@@ -101,9 +158,14 @@
   const sb = supabaseClient;
   const shell = document.getElementById('shell');
 
+  const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
   let business = null;
   let allBookings = [];
-  let currentTab = 'upcoming';
+  let allServices = [];
+  let currentPageTab = 'bookings';
+  let currentBookingTab = 'upcoming';
+  let serviceEditIdCounter = 0;
 
   async function init(){
     const { data: { user }, error: userError } = await sb.auth.getUser();
@@ -128,7 +190,7 @@
     }
     business = biz;
 
-    await loadBookings();
+    await Promise.all([loadBookings(), loadServices()]);
     render();
   }
 
@@ -145,6 +207,19 @@
       return;
     }
     allBookings = data || [];
+  }
+
+  async function loadServices(){
+    const { data, error } = await sb
+      .from('services')
+      .select('*')
+      .eq('business_id', business.id)
+      .order('name');
+    if (error){
+      console.error(error);
+      return;
+    }
+    allServices = data || [];
   }
 
   function render(){
@@ -171,14 +246,12 @@
         <div class="stat-box"><div class="num">${totalCount}</div><div class="label">Total bookings</div></div>
       </div>
 
-      <div class="card">
-        <div class="tabs">
-          <button class="tab-btn ${currentTab==='upcoming'?'active':''}" data-tab="upcoming">Upcoming</button>
-          <button class="tab-btn ${currentTab==='pending'?'active':''}" data-tab="pending">Pending</button>
-          <button class="tab-btn ${currentTab==='all'?'active':''}" data-tab="all">All</button>
-        </div>
-        <div id="bookingsList"></div>
+      <div class="page-tabs">
+        <button class="page-tab-btn ${currentPageTab==='bookings'?'active':''}" data-pagetab="bookings">Bookings</button>
+        <button class="page-tab-btn ${currentPageTab==='manage'?'active':''}" data-pagetab="manage">Manage business</button>
       </div>
+
+      <div id="pageContent"></div>
     `;
 
     document.getElementById('copyLinkBtn').addEventListener('click', () => {
@@ -189,10 +262,37 @@
       setTimeout(() => btn.textContent = original, 1500);
     });
 
+    document.querySelectorAll('.page-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentPageTab = btn.dataset.pagetab;
+        render();
+      });
+    });
+
+    if (currentPageTab === 'bookings'){
+      renderBookingsSection(todayStr);
+    } else {
+      renderManageSection();
+    }
+  }
+
+  function renderBookingsSection(todayStr){
+    const content = document.getElementById('pageContent');
+    content.innerHTML = `
+      <div class="card">
+        <div class="tabs">
+          <button class="tab-btn ${currentBookingTab==='upcoming'?'active':''}" data-tab="upcoming">Upcoming</button>
+          <button class="tab-btn ${currentBookingTab==='pending'?'active':''}" data-tab="pending">Pending</button>
+          <button class="tab-btn ${currentBookingTab==='all'?'active':''}" data-tab="all">All</button>
+        </div>
+        <div id="bookingsList"></div>
+      </div>
+    `;
+
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        currentTab = btn.dataset.tab;
-        render();
+        currentBookingTab = btn.dataset.tab;
+        renderBookingsSection(todayStr);
       });
     });
 
@@ -203,9 +303,9 @@
     const list = document.getElementById('bookingsList');
 
     let filtered = allBookings;
-    if (currentTab === 'upcoming'){
+    if (currentBookingTab === 'upcoming'){
       filtered = allBookings.filter(b => b.booking_date >= todayStr && b.status !== 'cancelled');
-    } else if (currentTab === 'pending'){
+    } else if (currentBookingTab === 'pending'){
       filtered = allBookings.filter(b => b.status === 'pending');
     }
 
@@ -263,6 +363,316 @@
     render();
   }
 
+  function renderManageSection(){
+    const content = document.getElementById('pageContent');
+    content.innerHTML = `
+      <div class="save-banner error" id="infoBanner"></div>
+
+      <div class="card">
+        <h2>Business info</h2>
+        <label>Business name *</label>
+        <input type="text" id="m_name" value="${escapeAttr(business.business_name)}">
+
+        <label>Description</label>
+        <textarea id="m_description" rows="3">${escapeHtml(business.description || '')}</textarea>
+
+        <div class="row-2">
+          <div>
+            <label>Phone number *</label>
+            <input type="tel" id="m_phone" value="${escapeAttr(business.phone)}">
+          </div>
+          <div>
+            <label>WhatsApp number</label>
+            <input type="tel" id="m_whatsapp" value="${escapeAttr(business.whatsapp)}">
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div>
+            <label>City</label>
+            <input type="text" id="m_city" value="${escapeAttr(business.city)}">
+          </div>
+          <div>
+            <label>Country</label>
+            <input type="text" id="m_country" value="${escapeAttr(business.country)}">
+          </div>
+        </div>
+
+        <label>Address</label>
+        <input type="text" id="m_address" value="${escapeAttr(business.address)}">
+
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" id="saveInfoBtn">Save business info</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Services</h2>
+        <div id="serviceEditList"></div>
+        <button type="button" class="add-service-btn" id="addServiceEditBtn">+ Add a service</button>
+        <button class="btn btn-primary" id="saveServicesBtn">Save services</button>
+      </div>
+
+      <div class="card">
+        <h2>Availability</h2>
+        <div id="manageDaysList"></div>
+        <label>Appointment slot length</label>
+        <select id="m_slot_interval">
+          <option value="15">15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="45">45 minutes</option>
+          <option value="60">60 minutes</option>
+        </select>
+        <label>Booking approval</label>
+        <select id="m_booking_approval">
+          <option value="automatic">Automatic — confirm bookings instantly</option>
+          <option value="manual">Manual — I approve each booking myself</option>
+        </select>
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" id="saveAvailabilityBtn">Save availability</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('saveInfoBtn').addEventListener('click', saveBusinessInfo);
+    document.getElementById('addServiceEditBtn').addEventListener('click', () => addServiceEditRow());
+    document.getElementById('saveServicesBtn').addEventListener('click', saveServices);
+    document.getElementById('saveAvailabilityBtn').addEventListener('click', saveAvailability);
+
+    renderServiceEditRows();
+    renderManageDays();
+  }
+
+  function showManageMessage(msg, isError){
+    const el = document.getElementById('infoBanner');
+    el.textContent = msg;
+    el.className = 'save-banner ' + (isError ? 'error' : 'success');
+    el.style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+    setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
+  async function saveBusinessInfo(){
+    const btn = document.getElementById('saveInfoBtn');
+    const name = document.getElementById('m_name').value.trim();
+    const phone = document.getElementById('m_phone').value.trim();
+
+    if (!name || !phone){
+      showManageMessage('Business name and phone number are required.', true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const { error } = await sb.from('businesses').update({
+      business_name: name,
+      description: document.getElementById('m_description').value.trim(),
+      phone: phone,
+      whatsapp: document.getElementById('m_whatsapp').value.trim(),
+      city: document.getElementById('m_city').value.trim(),
+      country: document.getElementById('m_country').value.trim(),
+      address: document.getElementById('m_address').value.trim()
+    }).eq('id', business.id);
+
+    btn.disabled = false;
+    btn.textContent = 'Save business info';
+
+    if (error){
+      showManageMessage('Could not save: ' + error.message, true);
+      return;
+    }
+
+    business.business_name = name;
+    showManageMessage('Business info saved.', false);
+    document.querySelector('.biz-card h1').textContent = name;
+  }
+
+  function renderServiceEditRows(){
+    const list = document.getElementById('serviceEditList');
+    list.innerHTML = '';
+    if (allServices.length === 0){
+      addServiceEditRow();
+      return;
+    }
+    allServices.forEach(s => addServiceEditRow(s));
+  }
+
+  function addServiceEditRow(existing){
+    existing = existing || {};
+    const id = 'msvc_' + (serviceEditIdCounter++);
+    const wrap = document.createElement('div');
+    wrap.className = 'service-edit-row';
+    wrap.id = id;
+    wrap.dataset.existingId = existing.id || '';
+    wrap.innerHTML = `
+      <div class="field">
+        <label>Service name</label>
+        <input type="text" class="msvc-name" placeholder="e.g. Gel Manicure" value="${escapeAttr(existing.name || '')}">
+      </div>
+      <div class="field small">
+        <label>Price (₦)</label>
+        <input type="number" class="msvc-price" min="0" value="${existing.price != null ? existing.price : ''}">
+      </div>
+      <div class="field small">
+        <label>Duration (min)</label>
+        <input type="number" class="msvc-duration" min="5" value="${existing.duration_minutes != null ? existing.duration_minutes : ''}">
+      </div>
+      <button type="button" class="remove-service-btn">Remove</button>
+    `;
+    wrap.querySelector('.remove-service-btn').addEventListener('click', () => {
+      wrap.remove();
+    });
+    document.getElementById('serviceEditList').appendChild(wrap);
+  }
+
+  async function saveServices(){
+    const btn = document.getElementById('saveServicesBtn');
+    const rows = Array.from(document.querySelectorAll('.service-edit-row'));
+
+    const toKeep = [];
+    const toInsert = [];
+    rows.forEach(row => {
+      const name = row.querySelector('.msvc-name').value.trim();
+      if (!name) return;
+      const price = parseFloat(row.querySelector('.msvc-price').value) || 0;
+      const duration_minutes = parseInt(row.querySelector('.msvc-duration').value) || 30;
+      const existingId = row.dataset.existingId;
+      if (existingId){
+        toKeep.push({ id: existingId, name, price, duration_minutes });
+      } else {
+        toInsert.push({ business_id: business.id, name, price, duration_minutes });
+      }
+    });
+
+    if (toKeep.length === 0 && toInsert.length === 0){
+      showManageMessage('Add at least one service before saving.', true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    for (const s of toKeep){
+      const { error } = await sb.from('services')
+        .update({ name: s.name, price: s.price, duration_minutes: s.duration_minutes })
+        .eq('id', s.id);
+      if (error){
+        showManageMessage('Could not update a service: ' + error.message, true);
+        btn.disabled = false;
+        btn.textContent = 'Save services';
+        return;
+      }
+    }
+
+    const keptIds = toKeep.map(s => s.id);
+    const removedIds = allServices.map(s => s.id).filter(id => !keptIds.includes(id));
+    if (removedIds.length > 0){
+      const { error } = await sb.from('services').delete().in('id', removedIds);
+      if (error){
+        showManageMessage('Could not remove a service: ' + error.message, true);
+        btn.disabled = false;
+        btn.textContent = 'Save services';
+        return;
+      }
+    }
+
+    if (toInsert.length > 0){
+      const { error } = await sb.from('services').insert(toInsert);
+      if (error){
+        showManageMessage('Could not add new service(s): ' + error.message, true);
+        btn.disabled = false;
+        btn.textContent = 'Save services';
+        return;
+      }
+    }
+
+    await loadServices();
+    btn.disabled = false;
+    btn.textContent = 'Save services';
+    showManageMessage('Services saved.', false);
+    renderServiceEditRows();
+  }
+
+  function renderManageDays(){
+    const list = document.getElementById('manageDaysList');
+    const workingDays = business.working_days || [];
+    const openingHours = business.opening_hours || {};
+
+    list.innerHTML = '';
+    DAYS.forEach((day, i) => {
+      const isOn = workingDays.includes(day);
+      const hours = openingHours[day] || { open: '09:00', close: '17:00' };
+      const row = document.createElement('div');
+      row.className = 'day-row' + (isOn ? '' : ' disabled');
+      row.id = 'mday_' + i;
+      row.innerHTML = `
+        <div class="day-check">
+          <input type="checkbox" id="mday_check_${i}" ${isOn ? 'checked' : ''}>
+          <span>${day}</span>
+        </div>
+        <div class="day-times">
+          <input type="time" id="mday_open_${i}" value="${hours.open}">
+          <span>to</span>
+          <input type="time" id="mday_close_${i}" value="${hours.close}">
+        </div>
+      `;
+      row.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
+        row.classList.toggle('disabled', !e.target.checked);
+      });
+      list.appendChild(row);
+    });
+
+    document.getElementById('m_slot_interval').value = business.appointment_interval_minutes || 30;
+    document.getElementById('m_booking_approval').value = business.booking_approval || 'automatic';
+  }
+
+  async function saveAvailability(){
+    const btn = document.getElementById('saveAvailabilityBtn');
+    const workingDays = [];
+    const openingHours = {};
+
+    DAYS.forEach((day, i) => {
+      const checked = document.getElementById('mday_check_' + i).checked;
+      if (checked){
+        workingDays.push(day);
+        openingHours[day] = {
+          open: document.getElementById('mday_open_' + i).value,
+          close: document.getElementById('mday_close_' + i).value
+        };
+      }
+    });
+
+    if (workingDays.length === 0){
+      showManageMessage('Select at least one working day.', true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const { error } = await sb.from('businesses').update({
+      working_days: workingDays,
+      opening_hours: openingHours,
+      appointment_interval_minutes: parseInt(document.getElementById('m_slot_interval').value),
+      booking_approval: document.getElementById('m_booking_approval').value
+    }).eq('id', business.id);
+
+    btn.disabled = false;
+    btn.textContent = 'Save availability';
+
+    if (error){
+      showManageMessage('Could not save availability: ' + error.message, true);
+      return;
+    }
+
+    business.working_days = workingDays;
+    business.opening_hours = openingHours;
+    business.appointment_interval_minutes = parseInt(document.getElementById('m_slot_interval').value);
+    business.booking_approval = document.getElementById('m_booking_approval').value;
+    showManageMessage('Availability saved.', false);
+  }
+
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await sb.auth.signOut();
     window.location.href = 'login.html';
@@ -272,6 +682,9 @@
     const div = document.createElement('div');
     div.textContent = str == null ? '' : String(str);
     return div.innerHTML;
+  }
+  function escapeAttr(str){
+    return escapeHtml(str).replace(/"/g, '&quot;');
   }
 
   init();
