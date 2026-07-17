@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create your account — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  .auth-layout{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 73px);}
+  .auth-panel{
+    background:linear-gradient(160deg,var(--navy),#0d2a5c);
+    color:#fff;padding:64px;display:flex;flex-direction:column;justify-content:space-between;
+    position:relative;overflow:hidden;
+  }
+  .auth-panel::before{
+    content:"";position:absolute;bottom:-160px;left:-160px;width:420px;height:420px;
+    background:radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%);border-radius:50%;
+  }
+  .auth-panel h2{color:#fff;font-size:32px;margin-bottom:16px;position:relative;}
+  .auth-panel p{color:rgba(255,255,255,0.65);font-size:15px;max-width:380px;position:relative;}
+  .panel-quote{
+    background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+    border-radius:16px;padding:24px;position:relative;
+  }
+  .panel-quote p{color:rgba(255,255,255,0.85);font-size:15px;margin-bottom:14px;}
+  .panel-quote .who{font-size:13px;font-weight:600;color:#fff;}
+  .panel-quote .role{font-size:12.5px;color:rgba(255,255,255,0.5);}
+
+  .form-side{display:flex;align-items:center;justify-content:center;padding:48px 32px;}
+  .form-card{width:100%;max-width:420px;}
+  .form-card h1{font-size:28px;margin-bottom:8px;}
+  .form-card > p{margin-bottom:32px;}
+  .switch-link{text-align:center;margin-top:24px;font-size:14px;color:var(--text-light);}
+  .switch-link a{color:var(--royal);font-weight:600;}
+
+  @media (max-width:900px){
+    .auth-layout{grid-template-columns:1fr;}
+    .auth-panel{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="index.html" class="logo"><div class="logo-mark">G</div>Growthive Book</a>
+    <div class="nav-actions">
+      <span class="small" style="color:var(--text-light);">Already have an account?</span>
+      <a href="login.html" class="btn btn-ghost">Log in</a>
+    </div>
+  </nav>
+</header>
+
+<div class="auth-layout">
+  <div class="auth-panel">
+    <div>
+      <h2>Your booking page, live in 10 minutes.</h2>
+      <p>Set up your business, add your services, and start receiving bookings today — no code, no designer needed.</p>
+    </div>
+    <div class="panel-quote">
+      <p>"I used to lose bookings when I couldn't reply to WhatsApp fast enough. Now clients just book themselves."</p>
+      <div class="who">Presh Beauty Lounge</div>
+      <div class="role">Nail & Lash Studio</div>
+    </div>
+  </div>
+
+  <div class="form-side">
+    <div class="form-card">
+      <h1>Create your account</h1>
+      <p>Start free — no card required.</p>
+
+      <div class="alert alert-error" id="errorAlert"></div>
+      <div class="alert alert-success" id="successAlert"></div>
+
+      <form id="registerForm" novalidate>
+        <div class="field" id="businessNameField">
+          <label for="businessName">Business name</label>
+          <input type="text" id="businessName" placeholder="e.g. Presh Beauty Lounge" autocomplete="organization">
+          <div class="field-error">Enter your business name.</div>
+        </div>
+
+        <div class="field" id="emailField">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="you@business.com" autocomplete="email">
+          <div class="field-error">Enter a valid email address.</div>
+        </div>
+
+        <div class="field" id="passwordField">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="At least 8 characters" autocomplete="new-password">
+          <div class="field-hint">Use at least 8 characters.</div>
+          <div class="field-error">Password must be at least 8 characters.</div>
+        </div>
+
+        <div class="field" id="confirmPasswordField">
+          <label for="confirmPassword">Confirm password</label>
+          <input type="password" id="confirmPassword" placeholder="Re-enter your password" autocomplete="new-password">
+          <div class="field-error">Passwords don't match.</div>
+        </div>
+
+        <div class="checkbox-row" id="termsRow">
+          <input type="checkbox" id="terms">
+          <label for="terms">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Create Free Account</button>
+      </form>
+
+      <div class="switch-link">Already have an account? <a href="login.html">Log in</a></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<script>
+  const form = document.getElementById('registerForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const errorAlert = document.getElementById('errorAlert');
+  const successAlert = document.getElementById('successAlert');
+
+  function showError(msg){
+    errorAlert.textContent = msg;
+    errorAlert.classList.add('show');
+    successAlert.classList.remove('show');
+  }
+  function clearFieldErrors(){
+    document.querySelectorAll('.field').forEach(f => f.classList.remove('has-error'));
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFieldErrors();
+    errorAlert.classList.remove('show');
+
+    const businessName = document.getElementById('businessName').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const termsChecked = document.getElementById('terms').checked;
+
+    let hasError = false;
+    if(!businessName){
+      document.getElementById('businessNameField').classList.add('has-error'); hasError = true;
+    }
+    if(!email || !email.includes('@')){
+      document.getElementById('emailField').classList.add('has-error'); hasError = true;
+    }
+    if(!password || password.length < 8){
+      document.getElementById('passwordField').classList.add('has-error'); hasError = true;
+    }
+    if(password !== confirmPassword){
+      document.getElementById('confirmPasswordField').classList.add('has-error'); hasError = true;
+    }
+    if(!termsChecked){
+      showError('Please agree to the Terms of Service to continue.');
+      hasError = true;
+    }
+    if(hasError) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating account...';
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options:{
+        data: { business_name: businessName }
+      }
+    });
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create Free Account';
+
+    if(error){
+      showError(error.message);
+      return;
+    }
+
+    successAlert.textContent = "Account created. Check your email to confirm your address, then log in to set up your business.";
+    successAlert.classList.add('show');
+    form.reset();
+  });
+</script>
+
+</body>
+</html>
