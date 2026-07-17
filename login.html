@@ -98,16 +98,35 @@
 
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Log in';
-
     if(error){
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Log in';
       showError(error.message);
       return;
     }
 
-    // Business Hub isn't built yet — this will redirect there once it exists.
-    window.location.href = 'business-hub.html';
+    // Check whether this user already has a business set up.
+    // New users (no business row yet) go to the setup wizard;
+    // returning users (business already exists) go to the dashboard.
+    const { data: existingBusiness, error: bizCheckError } = await supabaseClient
+      .from('businesses')
+      .select('id')
+      .eq('owner_id', data.user.id)
+      .maybeSingle();
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Log in';
+
+    if(bizCheckError){
+      showError('Logged in, but could not check your business setup: ' + bizCheckError.message);
+      return;
+    }
+
+    if(existingBusiness){
+      window.location.href = 'business-hub.html';
+    } else {
+      window.location.href = 'business-setup.html';
+    }
   });
 
   document.getElementById('forgotLink').addEventListener('click', async (e) => {
