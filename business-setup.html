@@ -90,7 +90,6 @@
   .banner.error{background:var(--danger-bg);color:var(--danger);}
   .banner.success{background:var(--success-bg);color:var(--success);}
 
-  /* Services list */
   .service-row{
     display:flex;gap:12px;align-items:flex-end;padding:16px;border:1px solid var(--border);
     border-radius:12px;margin-bottom:12px;
@@ -108,7 +107,6 @@
   }
   .add-service-btn:hover{background:var(--blue-light);}
 
-  /* Availability */
   .day-row{
     display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);
   }
@@ -120,7 +118,6 @@
   .day-times span{color:var(--text-faint);font-size:13px;}
   .day-row.disabled .day-times{opacity:0.35;pointer-events:none;}
 
-  /* Finish screen */
   .finish-icon{
     width:56px;height:56px;border-radius:50%;background:var(--success-bg);color:var(--success);
     display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 20px;
@@ -145,7 +142,6 @@
 
 <div class="wizard-shell">
 
-  <!-- Step tracker -->
   <div class="step-track" id="stepTrack">
     <div style="display:flex;flex-direction:column;align-items:center;">
       <div class="step-dot active" data-step="1">1</div>
@@ -172,7 +168,6 @@
 
   <div class="card">
 
-    <!-- STEP 1: BUSINESS INFO -->
     <div class="step-panel active" id="panel-1">
       <h1>Tell us about your business</h1>
       <p class="subtitle">This shows up on your public booking page.</p>
@@ -268,7 +263,6 @@
       </div>
     </div>
 
-    <!-- STEP 2: SERVICES -->
     <div class="step-panel" id="panel-2">
       <h1>Add your services</h1>
       <p class="subtitle">Add at least one service customers can book.</p>
@@ -282,7 +276,6 @@
       </div>
     </div>
 
-    <!-- STEP 3: AVAILABILITY -->
     <div class="step-panel" id="panel-3">
       <h1>Set your availability</h1>
       <p class="subtitle">Customers can only book during these hours.</p>
@@ -309,7 +302,6 @@
       </div>
     </div>
 
-    <!-- STEP 4: FINISH -->
     <div class="step-panel" id="panel-4">
       <div style="text-align:center;">
         <div class="finish-icon">✓</div>
@@ -331,13 +323,6 @@
 </div>
 
 <script>
-  // ---- Supabase client ----
-  // supabase-client.js defines a top-level `supabaseClient` variable (not attached
-  // to window), so we reference it directly here — both scripts share the same
-  // global scope since neither is loaded as a module.
-  // Named `sb` (not `supabase`) because the Supabase CDN script itself already
-  // creates a global called `supabase` — reusing that name causes a fatal
-  // "already been declared" error that silently breaks the whole page.
   const sb = supabaseClient;
 
   let currentStep = 1;
@@ -388,7 +373,6 @@
     currentStep = step;
   }
 
-  // ---- Services (step 2) ----
   function addServiceRow(prefill){
     prefill = prefill || {};
     const id = 'svc_' + (serviceIdCounter++);
@@ -433,11 +417,10 @@
     goToStep(3);
   }
 
-  // ---- Availability (step 3) ----
   function renderDays(){
     const list = document.getElementById('daysList');
     DAYS.forEach((day, i) => {
-      const isWeekday = i < 6; // Mon-Sat default on
+      const isWeekday = i < 6;
       const row = document.createElement('div');
       row.className = 'day-row' + (isWeekday ? '' : ' disabled');
       row.id = 'day_' + i;
@@ -476,7 +459,6 @@
     return { workingDays, openingHours };
   }
 
-  // ---- Slug helper ----
   function slugify(name){
     return name.toLowerCase().trim()
       .replace(/[^a-z0-9\s-]/g, '')
@@ -484,7 +466,6 @@
       .replace(/-+/g, '-');
   }
 
-  // ---- Final submit ----
   async function submitSetup(){
     clearError();
 
@@ -524,10 +505,8 @@
         return;
       }
 
-      const baseSlug = slugify(name);
-      let slug = baseSlug;
+      const slug = slugify(name);
 
-      // Insert business row
       const { data: business, error: bizError } = await sb
         .from('businesses')
         .insert({
@@ -566,7 +545,6 @@
         return;
       }
 
-      // Insert services, linked to the new business
       const servicesPayload = services.map(s => ({
         business_id: business.id,
         name: s.name,
@@ -582,8 +560,9 @@
         return;
       }
 
-      // Success — show finish screen
-      const url = window.location.origin + window.location.pathname.replace('business-setup.html','') + 'book/' + business.slug;
+      // Public booking page uses a query parameter (?b=slug), not a path segment —
+      // GitHub Pages serves static files only and can't route arbitrary paths.
+      const url = window.location.origin + window.location.pathname.replace('business-setup.html','') + 'book.html?b=' + business.slug;
       document.getElementById('finalUrl').textContent = url;
       window.finalBookingUrl = url;
       goToStep(4);
@@ -603,7 +582,6 @@
     setTimeout(() => btn.textContent = original, 1500);
   }
 
-  // ---- Init ----
   document.addEventListener('DOMContentLoaded', () => {
     addServiceRow();
     renderDays();
