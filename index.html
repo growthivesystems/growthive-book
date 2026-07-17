@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Growthive Book — Book More Clients. Spend Less Time Scheduling.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0A1F44;
+    --royal:#2563EB;
+    --white:#FFFFFF;
+    --bg-light:#F8FAFC;
+    --border:#E5E7EB;
+    --success:#10B981;
+    --warning:#F59E0B;
+    --danger:#EF4444;
+    --text-dark:#111827;
+    --text-light:#6B7280;
+    --shadow-sm: 0 1px 2px rgba(10,31,68,0.05), 0 1px 3px rgba(10,31,68,0.04);
+    --shadow-md: 0 4px 6px rgba(10,31,68,0.04), 0 10px 20px rgba(10,31,68,0.06);
+    --shadow-lg: 0 20px 40px rgba(10,31,68,0.10);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Inter',sans-serif;
+    color:var(--text-dark);
+    background:var(--white);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{text-decoration:none;color:inherit;}
+  ul{list-style:none;}
+  img{max-width:100%;display:block;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
+  section{padding:112px 0;}
+  h1,h2,h3{font-weight:700;letter-spacing:-0.02em;color:var(--navy);}
+  h1{font-size:56px;line-height:1.08;}
+  h2{font-size:40px;line-height:1.15;}
+  h3{font-size:20px;font-weight:600;line-height:1.3;}
+  p{color:var(--text-light);font-size:16px;}
+  .small{font-size:14px;}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:13px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;
+    color:var(--royal);margin-bottom:20px;
+  }
+  .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--royal);}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    font-size:16px;font-weight:500;padding:14px 28px;border-radius:12px;
+    cursor:pointer;border:none;transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+    white-space:nowrap;
+  }
+  .btn-primary{background:var(--royal);color:var(--white);box-shadow:var(--shadow-sm);}
+  .btn-primary:hover{background:#1d4fd1;transform:translateY(-1px);box-shadow:var(--shadow-md);}
+  .btn-ghost{background:transparent;color:var(--navy);border:1px solid var(--border);}
+  .btn-ghost:hover{border-color:var(--navy);background:var(--bg-light);}
+  .btn-navy{background:var(--navy);color:var(--white);}
+  .btn-navy:hover{background:#0d2a5c;transform:translateY(-1px);}
+
+  /* NAV */
+  header{
+    position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.85);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--border);
+  }
+  nav{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;max-width:1180px;margin:0 auto;}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;color:var(--navy);}
+  .logo-mark{
+    width:32px;height:32px;border-radius:9px;
+    background:linear-gradient(135deg,var(--royal),#1739a8);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:800;
+  }
+  .nav-links{display:flex;gap:36px;font-size:15px;font-weight:500;color:var(--text-dark);}
+  .nav-links a{color:var(--text-light);transition:color .15s;}
+  .nav-links a:hover{color:var(--navy);}
+  .nav-actions{display:flex;align-items:center;gap:12px;}
+  .nav-actions .btn{padding:10px 20px;font-size:15px;}
+
+  /* HERO */
+  .hero{padding:96px 0 80px;position:relative;overflow:hidden;background:var(--bg-light);}
+  .hero::before{
+    content:"";position:absolute;top:-200px;right:-200px;width:520px;height:520px;
+    background:radial-gradient(circle, rgba(37,99,235,0.10), transparent 70%);
+    border-radius:50%;
+  }
+  .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;position:relative;}
+  .hero-copy p{font-size:18px;max-width:460px;margin:24px 0 36px;}
+  .hero-actions{display:flex;gap:14px;margin-bottom:36px;}
+  .hero-trust{display:flex;gap:24px;align-items:center;font-size:13px;color:var(--text-light);}
+  .hero-trust strong{color:var(--navy);}
+
+  /* HERO DEVICE MOCK — Business Hub interface */
+  .device{
+    background:var(--white);border-radius:20px;box-shadow:var(--shadow-lg);
+    border:1px solid var(--border);overflow:hidden;transform:rotate(0.3deg);
+  }
+  .device-top{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 20px;border-bottom:1px solid var(--border);
+  }
+  .device-title{font-size:14px;font-weight:600;color:var(--navy);}
+  .device-dots{display:flex;gap:6px;}
+  .device-dots span{width:8px;height:8px;border-radius:50%;background:var(--border);}
+  .device-body{padding:20px;background:var(--bg-light);}
+  .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+  .kpi{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:14px;}
+  .kpi .num{font-size:22px;font-weight:700;color:var(--navy);}
+  .kpi .label{font-size:12px;color:var(--text-light);margin-top:2px;}
+  .slot-list{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:6px;}
+  .slot{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 14px;border-radius:10px;font-size:13px;
+  }
+  .slot:not(:last-child){border-bottom:1px solid var(--border);}
+  .slot .who{font-weight:600;color:var(--text-dark);}
+  .slot .when{color:var(--text-light);}
+  .pill{font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;}
+  .pill-confirmed{background:rgba(16,185,129,0.12);color:var(--success);}
+  .pill-pending{background:rgba(245,158,11,0.14);color:var(--warning);}
+  .pill-live{
+    position:absolute;top:22px;right:-14px;background:var(--success);color:#fff;
+    font-size:12px;font-weight:600;padding:8px 14px;border-radius:10px;
+    box-shadow:0 8px 20px rgba(16,185,129,0.35);display:flex;align-items:center;gap:6px;
+  }
+  .pill-live .dot{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+  /* LOGO STRIP */
+  .logo-strip{padding:48px 0;border-bottom:1px solid var(--border);}
+  .logo-strip p{text-align:center;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:28px;}
+  .logo-strip-row{display:flex;justify-content:center;gap:48px;flex-wrap:wrap;color:var(--text-light);font-weight:600;font-size:15px;opacity:0.7;}
+
+  /* FEATURES */
+  .section-head{max-width:560px;margin-bottom:56px;}
+  .section-head.center{margin-left:auto;margin-right:auto;text-align:center;}
+  .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+  .card{
+    background:var(--white);border:1px solid var(--border);border-radius:16px;
+    padding:28px;box-shadow:var(--shadow-sm);transition:box-shadow .2s, transform .2s;
+  }
+  .card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
+  .card-icon{
+    width:44px;height:44px;border-radius:12px;background:rgba(37,99,235,0.08);
+    display:flex;align-items:center;justify-content:center;margin-bottom:18px;color:var(--royal);
+  }
+  .card h3{margin-bottom:8px;}
+  .card p{font-size:14.5px;}
+
+  /* INDUSTRIES */
+  .industries{background:var(--navy);color:#fff;}
+  .industries .section-head h2{color:#fff;}
+  .industries .section-head p{color:rgba(255,255,255,0.6);}
+  .chip-grid{display:flex;flex-wrap:wrap;gap:12px;}
+  .chip{
+    padding:12px 20px;border-radius:999px;background:rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.12);font-size:14.5px;font-weight:500;
+    transition:background .15s, border-color .15s;
+  }
+  .chip:hover{background:rgba(37,99,235,0.25);border-color:var(--royal);}
+
+  /* HOW IT WORKS */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;counter-reset:step;}
+  .step{position:relative;padding-top:8px;}
+  .step-num{font-size:14px;font-weight:700;color:var(--royal);margin-bottom:14px;}
+  .step h3{margin-bottom:8px;}
+  .step p{font-size:14.5px;}
+  .step:not(:last-child)::after{
+    content:"";position:absolute;top:14px;left:calc(100% - 4px);width:calc(24px + 8px);
+    height:1px;background:var(--border);
+  }
+
+  /* TESTIMONIALS */
+  .testimonial-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+  .t-card{
+    background:var(--bg-light);border-radius:16px;padding:28px;border:1px solid var(--border);
+  }
+  .t-quote{font-size:15.5px;color:var(--text-dark);margin-bottom:20px;line-height:1.6;}
+  .t-person{display:flex;align-items:center;gap:12px;}
+  .t-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--royal),var(--navy));}
+  .t-name{font-size:14px;font-weight:600;color:var(--navy);}
+  .t-role{font-size:13px;color:var(--text-light);}
+
+  /* PRICING */
+  .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;align-items:stretch;}
+  .price-card{
+    background:var(--white);border:1px solid var(--border);border-radius:16px;padding:32px;
+    display:flex;flex-direction:column;
+  }
+  .price-card.featured{border:2px solid var(--royal);box-shadow:var(--shadow-md);position:relative;}
+  .featured-tag{
+    position:absolute;top:-13px;left:32px;background:var(--royal);color:#fff;
+    font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;
+  }
+  .price-name{font-size:15px;font-weight:600;color:var(--text-light);margin-bottom:12px;}
+  .price-amount{font-size:38px;font-weight:800;color:var(--navy);margin-bottom:4px;}
+  .price-amount span{font-size:15px;font-weight:500;color:var(--text-light);}
+  .price-desc{font-size:14px;margin-bottom:24px;}
+  .price-features{margin:0 0 28px;flex:1;}
+  .price-features li{
+    display:flex;gap:10px;align-items:flex-start;font-size:14.5px;color:var(--text-dark);
+    padding:8px 0;
+  }
+  .price-features li::before{content:"✓";color:var(--success);font-weight:700;}
+
+  /* FAQ */
+  .faq-list{max-width:760px;margin:0 auto;}
+  .faq-item{border-bottom:1px solid var(--border);padding:22px 0;cursor:pointer;}
+  .faq-q{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:16px;color:var(--navy);}
+  .faq-plus{font-size:20px;color:var(--royal);transition:transform .2s;font-weight:400;}
+  .faq-item.open .faq-plus{transform:rotate(45deg);}
+  .faq-a{max-height:0;overflow:hidden;transition:max-height .25s ease;}
+  .faq-item.open .faq-a{max-height:200px;margin-top:12px;}
+  .faq-a p{font-size:14.5px;}
+
+  /* CTA BAND */
+  .cta-band{
+    background:linear-gradient(135deg,var(--navy),#122e63);
+    border-radius:24px;padding:64px;text-align:center;color:#fff;
+    margin:0 32px;
+  }
+  .cta-band h2{color:#fff;margin-bottom:14px;}
+  .cta-band p{color:rgba(255,255,255,0.65);max-width:440px;margin:0 auto 32px;}
+
+  /* FOOTER */
+  footer{padding:64px 0 32px;border-top:1px solid var(--border);}
+  .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:48px;}
+  .footer-brand p{font-size:14px;max-width:240px;margin-top:14px;}
+  .footer-col h4{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:16px;}
+  .footer-col a{display:block;font-size:14px;color:var(--text-light);padding:6px 0;}
+  .footer-col a:hover{color:var(--royal);}
+  .footer-bottom{
+    display:flex;justify-content:space-between;align-items:center;
+    padding-top:24px;border-top:1px solid var(--border);font-size:13px;color:var(--text-light);
+  }
+
+  @media (max-width:960px){
+    h1{font-size:38px;} h2{font-size:30px;}
+    .hero-grid{grid-template-columns:1fr;}
+    .feature-grid,.steps,.testimonial-grid,.pricing-grid{grid-template-columns:1fr;}
+    .footer-grid{grid-template-columns:1fr 1fr;}
+    .nav-links{display:none;}
+    .step::after{display:none;}
+    section{padding:72px 0;}
+    .cta-band{padding:40px 24px;margin:0 16px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <div class="logo"><div class="logo-mark">G</div>Growthive Book</div>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="#" class="btn btn-ghost">Login</a>
+      <a href="#" class="btn btn-primary">Create Free Account</a>
+    </div>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <div class="eyebrow">For service businesses</div>
+      <h1>Book More Clients.<br>Spend Less Time Scheduling.</h1>
+      <p>Replace the back-and-forth WhatsApp chats and missed calls with one booking page your clients can use anytime — day or night.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn btn-primary">Create Free Account</a>
+        <a href="#" class="btn btn-ghost">View Demo</a>
+      </div>
+      <div class="hero-trust">
+        <span><strong>10 min</strong> to publish your page</span>
+        <span><strong>Zero</strong> setup fees</span>
+      </div>
+    </div>
+
+    <div style="position:relative;">
+      <div class="pill-live"><span class="dot"></span>Live</div>
+      <div class="device">
+        <div class="device-top">
+          <div class="device-title">Presh Beauty Lounge — Dashboard</div>
+          <div class="device-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="device-body">
+          <div class="kpi-row">
+            <div class="kpi"><div class="num">14</div><div class="label">Today's bookings</div></div>
+            <div class="kpi"><div class="num">3</div><div class="label">Pending</div></div>
+            <div class="kpi"><div class="num">₦86k</div><div class="label">Revenue</div></div>
+          </div>
+          <div class="slot-list">
+            <div class="slot">
+              <div><div class="who">Amaka O. — Gel Nails</div><div class="when">10:30 AM</div></div>
+              <span class="pill pill-confirmed">Confirmed</span>
+            </div>
+            <div class="slot">
+              <div><div class="who">Tolu A. — Classic Lash</div><div class="when">11:15 AM</div></div>
+              <span class="pill pill-pending">Pending</span>
+            </div>
+            <div class="slot">
+              <div><div class="who">Chidinma E. — Facial</div><div class="when">1:00 PM</div></div>
+              <span class="pill pill-confirmed">Confirmed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="logo-strip">
+  <p>Trusted by service businesses across every category</p>
+  <div class="logo-strip-row wrap">
+    <span>Nail Studios</span><span>Lash Artists</span><span>Salons</span><span>Barbers</span>
+    <span>Photographers</span><span>Fitness Coaches</span><span>Therapists</span>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Features</div>
+      <h2>Everything your front desk used to do, now automatic</h2>
+    </div>
+    <div class="feature-grid">
+      <div class="card">
+        <div class="card-icon">◐</div>
+        <h3>No double bookings</h3>
+        <p>The moment a slot is taken, it disappears from your public page — no overlapping appointments, ever.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">▤</div>
+        <h3>One link, everywhere</h3>
+        <p>Share a single booking page on Instagram, WhatsApp status, or your bio — clients book in under two minutes.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">✉</div>
+        <h3>Automatic reminders</h3>
+        <p>Clients get an email reminder before their appointment, so you spend less time chasing no-shows.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">▦</div>
+        <h3>Customer history</h3>
+        <p>Every client's visit history and total spend, saved automatically — no more spreadsheets.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">◫</div>
+        <h3>Gallery that sells</h3>
+        <p>Show off your best work next to each service, so clients know exactly what they're booking.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">◔</div>
+        <h3>Real-time analytics</h3>
+        <p>See your busiest hours, most popular services, and monthly growth at a glance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="industries">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow" style="color:#8fb0ff;">Built for</div>
+      <h2>Made for the business you already run</h2>
+      <p>Whatever service you offer, your booking page adapts to it.</p>
+    </div>
+    <div class="chip-grid">
+      <div class="chip">Nail Technicians</div>
+      <div class="chip">Lash Artists</div>
+      <div class="chip">Hair Salons</div>
+      <div class="chip">Barbers</div>
+      <div class="chip">Makeup Artists</div>
+      <div class="chip">Photographers</div>
+      <div class="chip">Tutors</div>
+      <div class="chip">Fitness Coaches</div>
+      <div class="chip">Consultants</div>
+      <div class="chip">Therapists</div>
+      <div class="chip">Massage Centers</div>
+      <div class="chip">Cleaning Services</div>
+      <div class="chip">Event Planners</div>
+      <div class="chip">Fashion Designers</div>
+    </div>
+  </div>
+</section>
+
+<section id="how-it-works">
+  <div class="wrap">
+    <div class="section-head center" style="margin-left:auto;margin-right:auto;">
+      <div class="eyebrow">How it works</div>
+      <h2>Live in four steps</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Set up your business</h3>
+        <p>Add your name, logo, and contact details in one short form.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>Add your services</h3>
+        <p>List what you offer, with pricing, duration, and photos.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>Set your availability</h3>
+        <p>Choose your working days, hours, and appointment length.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h3>Share your link</h3>
+        <p>Your booking page is ready — post it anywhere your clients are.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="background:var(--bg-light);">
+  <div class="wrap">
+    <div class="section-head center" style="margin-left:auto;margin-right:auto;">
+      <div class="eyebrow">Testimonials</div>
+      <h2>Business owners already booking smarter</h2>
+    </div>
+    <div class="testimonial-grid">
+      <div class="t-card">
+        <p class="t-quote">"I used to lose bookings when I couldn't reply to WhatsApp fast enough. Now clients just book themselves."</p>
+        <div class="t-person"><div class="t-avatar"></div><div><div class="t-name">Presh Beauty Lounge</div><div class="t-role">Nail & Lash Studio</div></div></div>
+      </div>
+      <div class="t-card">
+        <p class="t-quote">"My page looks like something a big brand would have. Clients keep telling me how easy it was to book."</p>
+        <div class="t-person"><div class="t-avatar"></div><div><div class="t-name">Kelvin Studios</div><div class="t-role">Photography</div></div></div>
+      </div>
+      <div class="t-card">
+        <p class="t-quote">"No more double bookings on a Saturday. That alone paid for itself in the first week."</p>
+        <div class="t-person"><div class="t-avatar"></div><div><div class="t-name">Fade Culture</div><div class="t-role">Barbershop</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="section-head center" style="margin-left:auto;margin-right:auto;">
+      <div class="eyebrow">Pricing</div>
+      <h2>Start free. Grow when you're ready.</h2>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Starter</div>
+        <div class="price-amount">₦0<span>/month</span></div>
+        <p class="price-desc">For businesses just getting started.</p>
+        <ul class="price-features">
+          <li>1 booking page</li>
+          <li>Up to 30 bookings/month</li>
+          <li>Email reminders</li>
+          <li>Basic analytics</li>
+        </ul>
+        <a href="#" class="btn btn-ghost">Create Free Account</a>
+      </div>
+      <div class="price-card featured">
+        <div class="featured-tag">Most popular</div>
+        <div class="price-name">Growth</div>
+        <div class="price-amount">₦4,500<span>/month</span></div>
+        <p class="price-desc">For businesses ready to scale bookings.</p>
+        <ul class="price-features">
+          <li>Unlimited bookings</li>
+          <li>Full gallery & analytics</li>
+          <li>Customer history & notes</li>
+          <li>Priority email support</li>
+        </ul>
+        <a href="#" class="btn btn-primary">Start free trial</a>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Studio</div>
+        <div class="price-amount">₦9,500<span>/month</span></div>
+        <p class="price-desc">For multi-staff studios and teams.</p>
+        <ul class="price-features">
+          <li>Everything in Growth</li>
+          <li>Multiple staff accounts</li>
+          <li>Multiple branches</li>
+          <li>Dedicated onboarding</li>
+        </ul>
+        <a href="#" class="btn btn-ghost">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="background:var(--bg-light);">
+  <div class="wrap">
+    <div class="section-head center" style="margin-left:auto;margin-right:auto;">
+      <div class="eyebrow">FAQ</div>
+      <h2>Questions, answered</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">Do my clients need to create an account to book?<span class="faq-plus">+</span></div>
+        <div class="faq-a"><p>No. Clients enter their name, phone, and email to book — no account or app download required.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I control which appointments are confirmed?<span class="faq-plus">+</span></div>
+        <div class="faq-a"><p>Yes. You choose automatic confirmation or manual approval for every booking on your page.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What happens if two people try to book the same time?<span class="faq-plus">+</span></div>
+        <div class="faq-a"><p>Once a slot is booked, it disappears from the page immediately — so double bookings can't happen.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I cancel anytime?<span class="faq-plus">+</span></div>
+        <div class="faq-a"><p>Yes, there's no lock-in contract. You can downgrade to the free Starter plan at any time.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="cta-band">
+    <h2>Your booking page could be live in 10 minutes.</h2>
+    <p>Join service businesses who've stopped scheduling by WhatsApp.</p>
+    <a href="#" class="btn btn-primary">Create Free Account</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo"><div class="logo-mark">G</div>Growthive Book</div>
+        <p>The digital front desk for modern service businesses. Part of the Growthive Systems ecosystem.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="#">About Growthive Systems</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Growthive Systems. All rights reserved.</span>
+      <span>Made for African service businesses.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.faq-item').forEach(item=>{
+    item.addEventListener('click',()=>{
+      const wasOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i=>i.classList.remove('open'));
+      if(!wasOpen) item.classList.add('open');
+    });
+  });
+</script>
+
+</body>
+</html>
