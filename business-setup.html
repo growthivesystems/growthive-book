@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Set up your business — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  :root{
+    --navy:#0A1F44;
+    --blue:#2563EB;
+    --blue-light:#EFF4FF;
+    --border:#E5E9F0;
+    --text-muted:#6B7280;
+    --text-faint:#9CA3AF;
+    --danger:#DC2626;
+    --danger-bg:#FEF2F2;
+    --success:#059669;
+    --success-bg:#ECFDF5;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:'Inter',Arial,sans-serif;
+    background:#F7F8FA;
+    margin:0;
+    color:var(--navy);
+  }
+  .wizard-nav{
+    display:flex;align-items:center;gap:10px;
+    padding:20px 32px;background:#fff;border-bottom:1px solid var(--border);
+  }
+  .wizard-nav .logo-mark{
+    width:32px;height:32px;border-radius:9px;background:var(--blue);
+    color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;
+  }
+  .wizard-nav .logo-text{font-weight:700;font-size:18px;}
+
+  .wizard-shell{max-width:640px;margin:0 auto;padding:48px 24px 80px;}
+
+  .step-track{display:flex;align-items:center;margin-bottom:40px;}
+  .step-dot{
+    width:32px;height:32px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;
+    background:#E5E9F0;color:var(--text-faint);
+    transition:background .2s, color .2s;
+  }
+  .step-dot.active{background:var(--blue);color:#fff;}
+  .step-dot.done{background:var(--navy);color:#fff;}
+  .step-line{flex:1;height:2px;background:#E5E9F0;margin:0 8px;}
+  .step-line.done{background:var(--navy);}
+  .step-label{font-size:11px;color:var(--text-faint);text-align:center;margin-top:6px;width:80px;}
+
+  .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:36px;}
+  .card h1{font-size:22px;margin:0 0 6px;}
+  .card .subtitle{color:var(--text-muted);font-size:14px;margin:0 0 28px;}
+
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;margin-top:18px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=tel], input[type=number], input[type=time], select, textarea{
+    width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;
+    font-size:14px;font-family:inherit;color:var(--navy);background:#fff;
+  }
+  input:focus, select:focus, textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-light);}
+  .hint{font-size:12px;color:var(--text-faint);margin-top:4px;}
+  .field-error{font-size:12px;color:var(--danger);margin-top:4px;display:none;}
+
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:520px){.row-2{grid-template-columns:1fr;}}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:13px 26px;border-radius:10px;font-weight:600;font-size:14px;
+    border:none;cursor:pointer;text-decoration:none;
+  }
+  .btn-primary{background:var(--blue);color:#fff;}
+  .btn-primary:hover{background:#1D4ED8;}
+  .btn-primary:disabled{background:#A9C2F5;cursor:not-allowed;}
+  .btn-ghost{background:#fff;color:var(--navy);border:1px solid var(--border);}
+  .btn-ghost:hover{background:#F7F8FA;}
+
+  .actions{display:flex;justify-content:space-between;margin-top:32px;}
+  .actions.single{justify-content:flex-end;}
+
+  .banner{padding:14px 16px;border-radius:10px;font-size:13.5px;margin-bottom:24px;display:none;}
+  .banner.error{background:var(--danger-bg);color:var(--danger);}
+  .banner.success{background:var(--success-bg);color:var(--success);}
+
+  /* Services list */
+  .service-row{
+    display:flex;gap:12px;align-items:flex-end;padding:16px;border:1px solid var(--border);
+    border-radius:12px;margin-bottom:12px;
+  }
+  .service-row .field{flex:1;}
+  .service-row .field.small{flex:0 0 90px;}
+  .service-row label{margin-top:0;font-size:11px;color:var(--text-muted);}
+  .remove-service{
+    background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;
+    padding:12px 4px;font-weight:600;
+  }
+  .add-service-btn{
+    width:100%;padding:12px;border:1.5px dashed var(--border);border-radius:12px;
+    background:none;color:var(--blue);font-weight:600;font-size:14px;cursor:pointer;
+  }
+  .add-service-btn:hover{background:var(--blue-light);}
+
+  /* Availability */
+  .day-row{
+    display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);
+  }
+  .day-row:last-child{border-bottom:none;}
+  .day-check{display:flex;align-items:center;gap:8px;width:130px;flex-shrink:0;font-size:14px;font-weight:600;}
+  .day-check input{width:18px;height:18px;accent-color:var(--blue);}
+  .day-times{display:flex;gap:8px;align-items:center;flex:1;}
+  .day-times input{padding:8px 10px;font-size:13px;}
+  .day-times span{color:var(--text-faint);font-size:13px;}
+  .day-row.disabled .day-times{opacity:0.35;pointer-events:none;}
+
+  /* Finish screen */
+  .finish-icon{
+    width:56px;height:56px;border-radius:50%;background:var(--success-bg);color:var(--success);
+    display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 20px;
+  }
+  .slug-box{
+    background:var(--blue-light);border:1px solid #C7D9FB;border-radius:10px;
+    padding:14px 16px;font-size:14px;font-weight:600;color:var(--blue);
+    display:flex;align-items:center;justify-content:space-between;gap:10px;margin:20px 0;word-break:break-all;
+  }
+  .copy-btn{background:none;border:none;color:var(--blue);cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;}
+
+  .step-panel{display:none;}
+  .step-panel.active{display:block;}
+</style>
+</head>
+<body>
+
+<div class="wizard-nav">
+  <div class="logo-mark">G</div>
+  <div class="logo-text">Growthive Book</div>
+</div>
+
+<div class="wizard-shell">
+
+  <!-- Step tracker -->
+  <div class="step-track" id="stepTrack">
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="step-dot active" data-step="1">1</div>
+      <div class="step-label">Business info</div>
+    </div>
+    <div class="step-line" data-line="1"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="step-dot" data-step="2">2</div>
+      <div class="step-label">Services</div>
+    </div>
+    <div class="step-line" data-line="2"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="step-dot" data-step="3">3</div>
+      <div class="step-label">Availability</div>
+    </div>
+    <div class="step-line" data-line="3"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="step-dot" data-step="4">4</div>
+      <div class="step-label">Finish</div>
+    </div>
+  </div>
+
+  <div class="banner error" id="errorBanner"></div>
+
+  <div class="card">
+
+    <!-- STEP 1: BUSINESS INFO -->
+    <div class="step-panel active" id="panel-1">
+      <h1>Tell us about your business</h1>
+      <p class="subtitle">This shows up on your public booking page.</p>
+
+      <label>Business name *</label>
+      <input type="text" id="biz_name" placeholder="e.g. Presh Beauty Lounge">
+
+      <label>Category *</label>
+      <select id="biz_category" onchange="toggleOtherCategory()">
+        <option value="">Select a category</option>
+        <option>Hair Salon</option>
+        <option>Barbershop</option>
+        <option>Lash & Nail Tech</option>
+        <option>Makeup Artist</option>
+        <option>Spa & Wellness</option>
+        <option>Fitness & Personal Training</option>
+        <option>Medical & Health Clinic</option>
+        <option>Photography & Events</option>
+        <option>Home Cleaning Services</option>
+        <option>Tutoring & Consulting</option>
+        <option>Auto Repair & Detailing</option>
+        <option>Other</option>
+      </select>
+
+      <div id="otherCategoryField" style="display:none;">
+        <label>Please specify what you do *</label>
+        <input type="text" id="biz_category_other" placeholder="e.g. Tailoring & Fashion Design">
+      </div>
+
+      <label>Description</label>
+      <textarea id="biz_description" rows="3" placeholder="A short line about what you offer"></textarea>
+
+      <div class="row-2">
+        <div>
+          <label>Phone number *</label>
+          <input type="tel" id="biz_phone" placeholder="080...">
+        </div>
+        <div>
+          <label>WhatsApp number</label>
+          <input type="tel" id="biz_whatsapp" placeholder="080...">
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div>
+          <label>City</label>
+          <input type="text" id="biz_city" placeholder="Abuja">
+        </div>
+        <div>
+          <label>Country</label>
+          <input type="text" id="biz_country" placeholder="Nigeria" value="Nigeria">
+        </div>
+      </div>
+
+      <label>Address</label>
+      <input type="text" id="biz_address" placeholder="Street, area">
+
+      <div class="row-2">
+        <div>
+          <label>Instagram handle</label>
+          <input type="text" id="biz_instagram" placeholder="@yourbusiness">
+        </div>
+        <div>
+          <label>Facebook page</label>
+          <input type="text" id="biz_facebook" placeholder="@yourbusiness or facebook.com/yourpage">
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div>
+          <label>TikTok handle</label>
+          <input type="text" id="biz_tiktok" placeholder="@yourbusiness">
+        </div>
+        <div>
+          <label>Website</label>
+          <input type="text" id="biz_website" placeholder="https://">
+        </div>
+      </div>
+
+      <label>Other platform (optional)</label>
+      <div class="row-2">
+        <div>
+          <input type="text" id="biz_other_platform" placeholder="e.g. Snapchat, Threads, YouTube">
+        </div>
+        <div>
+          <input type="text" id="biz_other_handle" placeholder="@handle or link">
+        </div>
+      </div>
+      <p class="hint">Have a platform we didn't list? Name it here along with your handle or link.</p>
+
+      <div class="actions single">
+        <button class="btn btn-primary" onclick="goToStep(2)">Continue</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: SERVICES -->
+    <div class="step-panel" id="panel-2">
+      <h1>Add your services</h1>
+      <p class="subtitle">Add at least one service customers can book.</p>
+
+      <div id="servicesList"></div>
+      <button type="button" class="add-service-btn" onclick="addServiceRow()">+ Add another service</button>
+
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="goToStep(1)">Back</button>
+        <button class="btn btn-primary" onclick="validateStep2()">Continue</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: AVAILABILITY -->
+    <div class="step-panel" id="panel-3">
+      <h1>Set your availability</h1>
+      <p class="subtitle">Customers can only book during these hours.</p>
+
+      <div id="daysList"></div>
+
+      <label>Appointment slot length</label>
+      <select id="slot_interval">
+        <option value="15">15 minutes</option>
+        <option value="30" selected>30 minutes</option>
+        <option value="45">45 minutes</option>
+        <option value="60">60 minutes</option>
+      </select>
+
+      <label>Booking approval</label>
+      <select id="booking_approval">
+        <option value="automatic">Automatic — confirm bookings instantly</option>
+        <option value="manual">Manual — I approve each booking myself</option>
+      </select>
+
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="goToStep(2)">Back</button>
+        <button class="btn btn-primary" onclick="submitSetup()" id="finishBtn">Create my booking page</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: FINISH -->
+    <div class="step-panel" id="panel-4">
+      <div style="text-align:center;">
+        <div class="finish-icon">✓</div>
+        <h1 style="text-align:center;">Your booking page is live</h1>
+        <p class="subtitle" style="text-align:center;">Share this link with your customers so they can start booking.</p>
+      </div>
+
+      <div class="slug-box">
+        <span id="finalUrl"></span>
+        <button class="copy-btn" onclick="copyUrl()">Copy</button>
+      </div>
+
+      <div class="actions single">
+        <a class="btn btn-primary" href="business-hub.html">Go to my dashboard</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ---- Supabase client ----
+  // Assumes assets/js/supabase-client.js exposes a ready client as `window.supabaseClient`
+  // (the same pattern used in register.html / login.html). If your file exports it
+  // differently, adjust this one line to match.
+  const supabase = window.supabaseClient;
+
+  let currentStep = 1;
+  let serviceIdCounter = 0;
+
+  const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+  function toggleOtherCategory(){
+    const select = document.getElementById('biz_category');
+    const field = document.getElementById('otherCategoryField');
+    field.style.display = (select.value === 'Other') ? 'block' : 'none';
+  }
+
+  function getCategoryValue(){
+    const select = document.getElementById('biz_category');
+    if (select.value === 'Other'){
+      return document.getElementById('biz_category_other').value.trim();
+    }
+    return select.value;
+  }
+
+  function showError(msg){
+    const el = document.getElementById('errorBanner');
+    el.textContent = msg;
+    el.style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function clearError(){
+    document.getElementById('errorBanner').style.display = 'none';
+  }
+
+  function goToStep(step){
+    clearError();
+    document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + step).classList.add('active');
+
+    document.querySelectorAll('.step-dot').forEach(dot => {
+      const n = parseInt(dot.dataset.step);
+      dot.classList.remove('active','done');
+      if (n < step) dot.classList.add('done');
+      else if (n === step) dot.classList.add('active');
+    });
+    document.querySelectorAll('.step-line').forEach(line => {
+      const n = parseInt(line.dataset.line);
+      line.classList.toggle('done', n < step);
+    });
+
+    currentStep = step;
+  }
+
+  // ---- Services (step 2) ----
+  function addServiceRow(prefill){
+    prefill = prefill || {};
+    const id = 'svc_' + (serviceIdCounter++);
+    const wrap = document.createElement('div');
+    wrap.className = 'service-row';
+    wrap.id = id;
+    wrap.innerHTML = `
+      <div class="field">
+        <label>Service name</label>
+        <input type="text" class="svc-name" placeholder="e.g. Gel Manicure" value="${prefill.name || ''}">
+      </div>
+      <div class="field small">
+        <label>Price (₦)</label>
+        <input type="number" class="svc-price" min="0" placeholder="5000" value="${prefill.price || ''}">
+      </div>
+      <div class="field small">
+        <label>Duration (min)</label>
+        <input type="number" class="svc-duration" min="5" placeholder="30" value="${prefill.duration || ''}">
+      </div>
+      <button type="button" class="remove-service" onclick="removeServiceRow('${id}')">Remove</button>
+    `;
+    document.getElementById('servicesList').appendChild(wrap);
+  }
+  function removeServiceRow(id){
+    const row = document.getElementById(id);
+    if (row) row.remove();
+    if (document.querySelectorAll('.service-row').length === 0) addServiceRow();
+  }
+  function collectServices(){
+    return Array.from(document.querySelectorAll('.service-row')).map(row => ({
+      name: row.querySelector('.svc-name').value.trim(),
+      price: parseFloat(row.querySelector('.svc-price').value) || 0,
+      duration_minutes: parseInt(row.querySelector('.svc-duration').value) || 30
+    })).filter(s => s.name !== '');
+  }
+  function validateStep2(){
+    const services = collectServices();
+    if (services.length === 0){
+      showError('Add at least one service with a name before continuing.');
+      return;
+    }
+    goToStep(3);
+  }
+
+  // ---- Availability (step 3) ----
+  function renderDays(){
+    const list = document.getElementById('daysList');
+    DAYS.forEach((day, i) => {
+      const isWeekday = i < 6; // Mon-Sat default on
+      const row = document.createElement('div');
+      row.className = 'day-row' + (isWeekday ? '' : ' disabled');
+      row.id = 'day_' + i;
+      row.innerHTML = `
+        <div class="day-check">
+          <input type="checkbox" id="day_check_${i}" ${isWeekday ? 'checked' : ''} onchange="toggleDay(${i})">
+          <span>${day}</span>
+        </div>
+        <div class="day-times">
+          <input type="time" id="day_open_${i}" value="09:00">
+          <span>to</span>
+          <input type="time" id="day_close_${i}" value="17:00">
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+  function toggleDay(i){
+    const row = document.getElementById('day_' + i);
+    const checked = document.getElementById('day_check_' + i).checked;
+    row.classList.toggle('disabled', !checked);
+  }
+  function collectAvailability(){
+    const workingDays = [];
+    const openingHours = {};
+    DAYS.forEach((day, i) => {
+      const checked = document.getElementById('day_check_' + i).checked;
+      if (checked){
+        workingDays.push(day);
+        openingHours[day] = {
+          open: document.getElementById('day_open_' + i).value,
+          close: document.getElementById('day_close_' + i).value
+        };
+      }
+    });
+    return { workingDays, openingHours };
+  }
+
+  // ---- Slug helper ----
+  function slugify(name){
+    return name.toLowerCase().trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  // ---- Final submit ----
+  async function submitSetup(){
+    clearError();
+
+    const name = document.getElementById('biz_name').value.trim();
+    const category = getCategoryValue();
+    const phone = document.getElementById('biz_phone').value.trim();
+
+    if (!name || !category || !phone){
+      showError('Business name, category (and what you do, if you picked "Other"), and phone are required — go back to step 1 to fill them in.');
+      goToStep(1);
+      return;
+    }
+
+    const services = collectServices();
+    if (services.length === 0){
+      showError('Add at least one service before finishing.');
+      goToStep(2);
+      return;
+    }
+
+    const { workingDays, openingHours } = collectAvailability();
+    if (workingDays.length === 0){
+      showError('Select at least one working day.');
+      return;
+    }
+
+    const btn = document.getElementById('finishBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating your booking page...';
+
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user){
+        showError('Your session has expired — please log in again.');
+        btn.disabled = false;
+        btn.textContent = 'Create my booking page';
+        return;
+      }
+
+      const baseSlug = slugify(name);
+      let slug = baseSlug;
+
+      // Insert business row
+      const { data: business, error: bizError } = await supabase
+        .from('businesses')
+        .insert({
+          owner_id: user.id,
+          business_name: name,
+          slug: slug,
+          description: document.getElementById('biz_description').value.trim(),
+          phone: phone,
+          whatsapp: document.getElementById('biz_whatsapp').value.trim(),
+          website: document.getElementById('biz_website').value.trim(),
+          instagram: document.getElementById('biz_instagram').value.trim(),
+          facebook: document.getElementById('biz_facebook').value.trim(),
+          tiktok: document.getElementById('biz_tiktok').value.trim(),
+          other_social_platform: document.getElementById('biz_other_platform').value.trim(),
+          other_social_handle: document.getElementById('biz_other_handle').value.trim(),
+          address: document.getElementById('biz_address').value.trim(),
+          city: document.getElementById('biz_city').value.trim(),
+          country: document.getElementById('biz_country').value.trim(),
+          category: category,
+          opening_hours: openingHours,
+          working_days: workingDays,
+          appointment_interval_minutes: parseInt(document.getElementById('slot_interval').value),
+          booking_approval: document.getElementById('booking_approval').value
+        })
+        .select()
+        .single();
+
+      if (bizError){
+        if (bizError.code === '23505'){
+          showError('That business name is already taken — try a slightly different name.');
+        } else {
+          showError('Something went wrong saving your business: ' + bizError.message);
+        }
+        btn.disabled = false;
+        btn.textContent = 'Create my booking page';
+        return;
+      }
+
+      // Insert services, linked to the new business
+      const servicesPayload = services.map(s => ({
+        business_id: business.id,
+        name: s.name,
+        price: s.price,
+        duration_minutes: s.duration_minutes
+      }));
+      const { error: servicesError } = await supabase.from('services').insert(servicesPayload);
+
+      if (servicesError){
+        showError('Business created, but services failed to save: ' + servicesError.message);
+        btn.disabled = false;
+        btn.textContent = 'Create my booking page';
+        return;
+      }
+
+      // Success — show finish screen
+      const url = window.location.origin + window.location.pathname.replace('business-setup.html','') + 'book/' + business.slug;
+      document.getElementById('finalUrl').textContent = url;
+      window.finalBookingUrl = url;
+      goToStep(4);
+
+    } catch (err){
+      showError('Unexpected error: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Create my booking page';
+    }
+  }
+
+  function copyUrl(){
+    navigator.clipboard.writeText(window.finalBookingUrl || '');
+    const btn = document.querySelector('.copy-btn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = original, 1500);
+  }
+
+  // ---- Init ----
+  document.addEventListener('DOMContentLoaded', () => {
+    addServiceRow();
+    renderDays();
+  });
+</script>
+
+</body>
+</html>
