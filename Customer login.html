@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log in — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  .auth-layout{display:grid;place-items:center;min-height:calc(100vh - 73px);background:var(--bg-light);padding:40px 16px;}
+  .form-card{
+    width:100%;max-width:420px;background:var(--white);border:1px solid var(--border);
+    border-radius:20px;padding:40px;box-shadow:var(--shadow-md);
+  }
+  .form-card h1{font-size:26px;margin-bottom:8px;}
+  .form-card > p{margin-bottom:28px;}
+  .forgot-link{display:block;text-align:right;font-size:13.5px;color:var(--royal);font-weight:500;margin:-10px 0 24px;}
+  .switch-link{text-align:center;margin-top:22px;font-size:14px;color:var(--text-light);}
+  .switch-link a{color:var(--royal);font-weight:600;}
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="index.html" class="logo"><div class="logo-mark">G</div>Growthive Book</a>
+    <div class="nav-actions">
+      <span class="small" style="color:var(--text-light);">New here?</span>
+      <a href="customer-register.html" class="btn btn-ghost">Create account</a>
+    </div>
+  </nav>
+</header>
+
+<div class="auth-layout">
+  <div class="form-card">
+    <h1>Welcome back</h1>
+    <p>Log in to see your upcoming and past bookings.</p>
+
+    <div class="alert alert-error" id="errorAlert"></div>
+
+    <form id="loginForm" novalidate>
+      <div class="field" id="phoneField">
+        <label for="phone">Phone number</label>
+        <input type="tel" id="phone" placeholder="080..." autocomplete="tel">
+        <div class="field-error">Enter your phone number.</div>
+      </div>
+
+      <div class="field" id="passwordField">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Your password" autocomplete="current-password">
+        <div class="field-error">Enter your password.</div>
+      </div>
+
+      <a href="customer-reset-password.html" class="forgot-link">Forgot password?</a>
+
+      <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Log in</button>
+    </form>
+
+    <div class="switch-link">Don't have an account? <a href="customer-register.html">Create one free</a></div>
+  </div>
+</div>
+
+<script>
+  const sb = supabaseClient;
+  const form = document.getElementById('loginForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const errorAlert = document.getElementById('errorAlert');
+
+  function showError(msg){
+    errorAlert.textContent = msg;
+    errorAlert.classList.add('show');
+  }
+  function clearFieldErrors(){
+    document.querySelectorAll('.field').forEach(f => f.classList.remove('has-error'));
+  }
+
+  // If we came here from book.html via a "log in first" link, remember where to
+  // send the customer back to once they're signed in.
+  const urlParams = new URLSearchParams(window.location.search);
+  const returnTo = urlParams.get('return');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFieldErrors();
+    errorAlert.classList.remove('show');
+
+    const phone = document.getElementById('phone').value.trim();
+    const password = document.getElementById('password').value;
+
+    let hasError = false;
+    if(!phone){ document.getElementById('phoneField').classList.add('has-error'); hasError = true; }
+    if(!password){ document.getElementById('passwordField').classList.add('has-error'); hasError = true; }
+    if(hasError) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Logging in...';
+
+    const { data: token, error } = await sb.rpc('customer_login', {
+      p_phone: phone,
+      p_password: password
+    });
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Log in';
+
+    if(error){
+      showError(error.message);
+      return;
+    }
+
+    localStorage.setItem('customer_session_token', token);
+    window.location.href = returnTo || 'my-bookings.html';
+  });
+</script>
+
+</body>
+</html>
