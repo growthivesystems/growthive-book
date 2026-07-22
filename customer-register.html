@@ -56,9 +56,10 @@
       </div>
 
       <div class="field" id="emailField">
-        <label for="email">Email (optional)</label>
+        <label for="email">Email</label>
         <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
-        <div class="field-hint">Only used to send you booking confirmations and reminders — never for login.</div>
+        <div class="field-hint">We'll only use this to send your booking confirmation and reminders.</div>
+        <div class="field-error">Enter a valid email address.</div>
       </div>
 
       <div class="field" id="passwordField">
@@ -109,6 +110,7 @@
     let hasError = false;
     if(!fullName){ document.getElementById('nameField').classList.add('has-error'); hasError = true; }
     if(!phone || phone.length < 7){ document.getElementById('phoneField').classList.add('has-error'); hasError = true; }
+    if(!email || !email.includes('@')){ document.getElementById('emailField').classList.add('has-error'); hasError = true; }
     if(!password || password.length < 6){ document.getElementById('passwordField').classList.add('has-error'); hasError = true; }
     if(!pin || pin.length < 4){ document.getElementById('pinField').classList.add('has-error'); hasError = true; }
     if(hasError) return;
@@ -121,7 +123,7 @@
       p_phone: phone,
       p_password: password,
       p_pin: pin,
-      p_email: email || null
+      p_email: email
     });
 
     if(error){
