@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -29,7 +29,7 @@
     <a href="index.html" class="logo"><div class="logo-mark">G</div>Growthive Book</a>
     <div class="nav-actions">
       <span class="small" style="color:var(--text-light);">Already have an account?</span>
-      <a href="customer-login.html" class="btn btn-ghost">Log in</a>
+      <a href="#" class="btn btn-ghost" id="loginNavLink">Log in</a>
     </div>
   </nav>
 </header>
@@ -78,7 +78,7 @@
       <button type="submit" class="btn btn-primary btn-block" id="submitBtn" style="margin-top:8px;">Create account</button>
     </form>
 
-    <div class="switch-link">Already have an account? <a href="customer-login.html">Log in</a></div>
+    <div class="switch-link">Already have an account? <a href="#" id="loginSwitchLink">Log in</a></div>
   </div>
 </div>
 
@@ -87,6 +87,15 @@
   const form = document.getElementById('signupForm');
   const submitBtn = document.getElementById('submitBtn');
   const errorAlert = document.getElementById('errorAlert');
+
+  // If we arrived here from book.html (via "Sign up to complete your booking"),
+  // remember where to send the customer back to once they're signed in.
+  const urlParams = new URLSearchParams(window.location.search);
+  const returnTo = urlParams.get('return');
+
+  const loginUrl = 'customer-login.html' + (returnTo ? '?return=' + encodeURIComponent(returnTo) : '');
+  document.getElementById('loginNavLink').href = loginUrl;
+  document.getElementById('loginSwitchLink').href = loginUrl;
 
   function showError(msg){
     errorAlert.textContent = msg;
@@ -149,7 +158,7 @@
     }
 
     localStorage.setItem('customer_session_token', token);
-    window.location.href = 'my-bookings.html';
+    window.location.href = returnTo || 'my-bookings.html';
   });
 </script>
 
