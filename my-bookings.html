@@ -53,6 +53,43 @@
   .empty-state a{color:var(--royal);font-weight:600;}
 
   .loading-state{text-align:center;padding:60px 20px;color:var(--text-light);font-size:14.5px;}
+
+  .profile-trigger{
+    display:flex;align-items:center;gap:8px;background:none;border:1px solid var(--border);
+    border-radius:999px;padding:6px 14px 6px 6px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--navy);
+  }
+  .profile-trigger:hover{background:var(--bg-light);}
+  .profile-avatar{
+    width:26px;height:26px;border-radius:50%;background:var(--royal);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0;
+  }
+
+  .profile-dropdown{
+    display:none;position:absolute;top:calc(100% + 8px);right:0;width:280px;
+    background:var(--white);border:1px solid var(--border);border-radius:14px;
+    box-shadow:var(--shadow-md);padding:18px;z-index:20;
+  }
+  .profile-dropdown.open{display:block;}
+  .profile-dropdown .dropdown-label{font-size:12px;font-weight:600;color:var(--text-light);margin:12px 0 5px;}
+  .profile-dropdown .dropdown-label:first-child{margin-top:0;}
+  .profile-dropdown input{
+    width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;font-family:inherit;
+  }
+  .profile-dropdown input:disabled{background:var(--bg-light);color:var(--text-light);}
+  .btn-block{width:100%;}
+
+  .howto{
+    background:var(--bg-light);border:1px solid var(--border);border-radius:14px;
+    padding:4px 18px;margin-bottom:24px;
+  }
+  .howto summary{
+    cursor:pointer;font-weight:600;font-size:14px;padding:12px 0;list-style:none;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .howto summary::-webkit-details-marker{display:none;}
+  .howto summary::after{content:"+";font-size:18px;color:var(--text-light);}
+  .howto[open] summary::after{content:"−";}
+  .howto ol{margin:0 0 14px;padding-left:20px;color:var(--text-light);font-size:13.5px;line-height:1.7;}
 </style>
 </head>
 <body>
@@ -60,8 +97,26 @@
 <header>
   <nav>
     <a href="index.html" class="logo"><div class="logo-mark">G</div>Growthive Book</a>
-    <div class="nav-actions">
-      <button class="btn btn-ghost" id="logoutBtn">Log out</button>
+    <div class="nav-actions" style="position:relative;">
+      <a href="browse.html" class="btn btn-ghost">Browse businesses</a>
+      <button class="profile-trigger" id="profileTrigger">
+        <span class="profile-avatar" id="profileAvatar">?</span>
+        <span id="profileFirstName">Account</span>
+      </button>
+
+      <div class="profile-dropdown" id="profileDropdown">
+        <p class="dropdown-label">Full name</p>
+        <input type="text" id="profileName">
+        <p class="dropdown-label">Email</p>
+        <input type="email" id="profileEmail">
+        <p class="dropdown-label">Phone</p>
+        <input type="text" id="profilePhone" disabled>
+        <p class="field-hint" style="margin:4px 0 14px;">Phone is your login ID and can't be changed here.</p>
+        <div class="alert alert-error" id="profileError" style="display:none;"></div>
+        <div class="alert" id="profileSuccess" style="display:none;background:#ECFDF5;color:#059669;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-primary btn-block" id="saveProfileBtn" style="margin-bottom:10px;">Save changes</button>
+        <button class="btn btn-ghost btn-block" id="logoutBtn">Log out</button>
+      </div>
     </div>
   </nav>
 </header>
@@ -71,6 +126,17 @@
     <h1 id="greetingName">Your bookings</h1>
     <p>Everything you've booked with any business, in one place.</p>
   </div>
+
+  <details class="howto">
+    <summary>How booking works</summary>
+    <ol>
+      <li>Find a business on <a href="browse.html">Browse businesses</a>, or open a link a business shared with you directly.</li>
+      <li>Pick a service, then a date and time that's actually open.</li>
+      <li>Confirm your details — you'll need to be signed in to finish, so we know it's really you.</li>
+      <li>The business will confirm or decline your booking — you'll see the status update right here.</li>
+      <li>Message the business on WhatsApp anytime from a booking card if you need to follow up.</li>
+    </ol>
+  </details>
 
   <div class="tabs">
     <button class="tab active" data-tab="upcoming" onclick="switchTab('upcoming')">Upcoming</button>
@@ -111,8 +177,58 @@
     customer = sessionRows[0];
     document.getElementById('greetingName').textContent = `Hi ${customer.full_name.split(' ')[0]}, here's your bookings`;
 
+    document.getElementById('profileFirstName').textContent = customer.full_name.split(' ')[0];
+    document.getElementById('profileAvatar').textContent = customer.full_name.charAt(0).toUpperCase();
+    document.getElementById('profileName').value = customer.full_name;
+    document.getElementById('profileEmail').value = customer.email || '';
+    document.getElementById('profilePhone').value = customer.phone;
+
     await loadBookings();
   }
+
+  const profileTrigger = document.getElementById('profileTrigger');
+  const profileDropdown = document.getElementById('profileDropdown');
+
+  profileTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    profileDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!profileDropdown.contains(e.target) && e.target !== profileTrigger){
+      profileDropdown.classList.remove('open');
+    }
+  });
+
+  document.getElementById('saveProfileBtn').addEventListener('click', async () => {
+    const errorBox = document.getElementById('profileError');
+    const successBox = document.getElementById('profileSuccess');
+    errorBox.style.display = 'none';
+    successBox.style.display = 'none';
+
+    const newName = document.getElementById('profileName').value.trim();
+    const newEmail = document.getElementById('profileEmail').value.trim();
+
+    const { error } = await sb.rpc('customer_update_profile', {
+      p_token: token,
+      p_full_name: newName,
+      p_email: newEmail
+    });
+
+    if (error){
+      errorBox.textContent = error.message;
+      errorBox.style.display = 'block';
+      return;
+    }
+
+    customer.full_name = newName;
+    customer.email = newEmail;
+    document.getElementById('greetingName').textContent = `Hi ${newName.split(' ')[0]}, here's your bookings`;
+    document.getElementById('profileFirstName').textContent = newName.split(' ')[0];
+    document.getElementById('profileAvatar').textContent = newName.charAt(0).toUpperCase();
+
+    successBox.textContent = 'Saved!';
+    successBox.style.display = 'block';
+  });
 
   async function loadBookings(){
     const { data, error } = await sb
@@ -158,7 +274,7 @@
           <p>${activeTab === 'upcoming'
             ? "You don't have any upcoming bookings yet."
             : "No past bookings to show."}</p>
-          ${activeTab === 'upcoming' ? `<p>Find a business and <a href="index.html">book your first appointment</a>.</p>` : ''}
+          ${activeTab === 'upcoming' ? `<p>Find a business and <a href="browse.html">book your first appointment</a>.</p>` : ''}
         </div>
       `;
       return;
