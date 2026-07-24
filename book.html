@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -162,6 +162,7 @@
   let selectedService = null;
   let selectedDate = null;
   let selectedTime = null;
+  let loggedInCustomer = null;
 
   const DAY_INDEX_TO_NAME = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
@@ -233,6 +234,36 @@
     }
     services = svcs || [];
 
+    const customerToken = localStorage.getItem('customer_session_token');
+    if (customerToken){
+      const { data: sessionRows } = await sb.rpc('customer_session_check', { p_token: customerToken });
+      if (sessionRows && sessionRows.length > 0){
+        loggedInCustomer = sessionRows[0];
+      }
+    }
+
+    // If this customer just came back from signing up/logging in mid-booking,
+    // finish that booking automatically instead of making them start over.
+    const pendingRaw = sessionStorage.getItem('pendingBooking');
+    if (pendingRaw && loggedInCustomer){
+      try {
+        const pending = JSON.parse(pendingRaw);
+        if (pending.slug === slug){
+          const matchedService = services.find(s => s.id === pending.serviceId);
+          if (matchedService){
+            selectedService = matchedService;
+            selectedDate = pending.date;
+            selectedTime = pending.time;
+            render();
+            await finalizeBooking(pending.name, pending.phone, pending.email);
+            return;
+          }
+        }
+      } catch (e){
+        sessionStorage.removeItem('pendingBooking');
+      }
+    }
+
     render();
   }
 
@@ -295,14 +326,24 @@
         <div class="card" id="detailsCard" style="display:none;">
           <h2>Your details</h2>
           <p class="step-hint">So we know who's booking, and how to reach you.</p>
+          ${loggedInCustomer ? `
+            <div style="background:var(--blue-light);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13.5px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <span>Booking as <b>${escapeHtml(loggedInCustomer.full_name)}</b></span>
+              <a href="my-bookings.html" style="color:var(--blue);font-weight:600;text-decoration:none;">My bookings →</a>
+            </div>
+          ` : `
+            <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13.5px;color:#92400E;">
+              You can fill this in as a guest, but you'll need a free account to finish booking — it just takes a minute, and we'll bring you right back here.
+            </div>
+          `}
           <label>Full name *</label>
-          <input type="text" id="customerName" placeholder="Your name">
+          <input type="text" id="customerName" placeholder="Your name" value="${loggedInCustomer ? escapeHtml(loggedInCustomer.full_name) : ''}">
           <label>Phone number *</label>
-          <input type="tel" id="customerPhone" placeholder="080...">
+          <input type="tel" id="customerPhone" placeholder="080..." value="${loggedInCustomer ? escapeHtml(loggedInCustomer.phone) : ''}">
           <label>Email (optional)</label>
-          <input type="email" id="customerEmail" placeholder="you@example.com">
+          <input type="email" id="customerEmail" placeholder="you@example.com" value="${loggedInCustomer && loggedInCustomer.email ? escapeHtml(loggedInCustomer.email) : ''}">
           <div style="margin-top:22px;">
-            <button class="btn btn-primary" id="submitBtn" onclick="submitBooking()">Confirm booking</button>
+            <button class="btn btn-primary" id="submitBtn" onclick="submitBooking()">${loggedInCustomer ? 'Confirm booking' : 'Continue to sign up & confirm'}</button>
           </div>
           ${business.whatsapp ? `<p class="whatsapp-note">Payment and final details are handled directly with ${escapeHtml(business.business_name)} on WhatsApp after booking.</p>` : ''}
         </div>
@@ -431,15 +472,35 @@
       return;
     }
 
+    // Booking can only be finalized by a signed-in customer. If not logged in,
+    // save everything picked so far and send them to create an account —
+    // they'll land right back here with the booking completed automatically.
+    if (!loggedInCustomer){
+      sessionStorage.setItem('pendingBooking', JSON.stringify({
+        slug, serviceId: selectedService.id, date: selectedDate, time: selectedTime,
+        name, phone, email
+      }));
+      const returnUrl = window.location.href;
+      window.location.href = 'customer-register.html?return=' + encodeURIComponent(returnUrl);
+      return;
+    }
+
+    await finalizeBooking(name, phone, email);
+  }
+
+  async function finalizeBooking(name, phone, email){
     const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.textContent = 'Booking...';
+    if (btn){
+      btn.disabled = true;
+      btn.textContent = 'Booking...';
+    }
 
     const status = business.booking_approval === 'manual' ? 'pending' : 'confirmed';
 
     const { error } = await sb.from('bookings').insert({
       business_id: business.id,
       service_id: selectedService.id,
+      customer_id: loggedInCustomer ? loggedInCustomer.customer_id : null,
       customer_name: name,
       customer_phone: phone,
       customer_email: email || null,
@@ -450,10 +511,14 @@
 
     if (error){
       showBookingError('That slot was just taken, or something went wrong: ' + error.message + '. Please pick another time.');
-      btn.disabled = false;
-      btn.textContent = 'Confirm booking';
+      if (btn){
+        btn.disabled = false;
+        btn.textContent = 'Confirm booking';
+      }
       return;
     }
+
+    sessionStorage.removeItem('pendingBooking');
 
     // Send the customer a confirmation email directly from the browser via EmailJS.
     // This runs independently of the booking save above — if it fails for any
@@ -494,7 +559,10 @@
           ${escapeHtml(selectedService.name)} with ${escapeHtml(business.business_name)}<br>
           ${selectedDate} at ${selectedTime}
         </p>
-        ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="btn btn-primary" style="width:auto;">Message us on WhatsApp</a>` : ''}
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="btn btn-primary" style="width:auto;">Message us on WhatsApp</a>` : ''}
+          <a href="my-bookings.html" class="btn" style="width:auto;background:var(--blue-light);color:var(--navy);">View my bookings</a>
+        </div>
       </div>
     `;
   }
