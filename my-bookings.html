@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Bookings — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  .page-wrap{max-width:640px;margin:0 auto;padding:40px 16px 80px;}
+  .greeting h1{font-size:26px;margin:0 0 6px;}
+  .greeting p{color:var(--text-light);margin:0 0 28px;}
+
+  .tabs{display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border);}
+  .tab{
+    padding:10px 4px;margin-right:20px;font-size:14.5px;font-weight:600;color:var(--text-light);
+    background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;
+  }
+  .tab.active{color:var(--navy);border-bottom-color:var(--royal);}
+
+  .booking-card{
+    background:var(--white);border:1px solid var(--border);border-radius:16px;
+    padding:20px 22px;margin-bottom:14px;
+  }
+  .booking-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .booking-business{font-weight:700;font-size:15.5px;}
+  .booking-service{color:var(--text-light);font-size:13.5px;margin-top:2px;}
+  .booking-when{font-size:14px;margin-top:10px;font-weight:600;}
+  .status-pill{
+    font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;
+    text-transform:capitalize;
+  }
+  .status-confirmed{background:#ECFDF5;color:#059669;}
+  .status-pending{background:#FFFBEB;color:#B45309;}
+  .status-cancelled{background:#FEF2F2;color:#DC2626;}
+  .status-completed{background:#EFF4FF;color:var(--royal);}
+  .status-no_show{background:#F3F4F6;color:#6B7280;}
+
+  .booking-actions{display:flex;gap:10px;margin-top:16px;}
+  .btn-small{
+    padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+    text-decoration:none;border:1px solid var(--border);background:#fff;color:var(--navy);
+  }
+  .btn-small:hover{background:var(--bg-light);}
+  .btn-small.danger{color:#DC2626;border-color:#FCA5A5;}
+  .btn-small.danger:hover{background:#FEF2F2;}
+
+  .empty-state{text-align:center;padding:60px 20px;color:var(--text-light);}
+  .empty-state .icon{font-size:32px;margin-bottom:12px;}
+  .empty-state a{color:var(--royal);font-weight:600;}
+
+  .loading-state{text-align:center;padding:60px 20px;color:var(--text-light);font-size:14.5px;}
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="index.html" class="logo"><div class="logo-mark">G</div>Growthive Book</a>
+    <div class="nav-actions">
+      <button class="btn btn-ghost" id="logoutBtn">Log out</button>
+    </div>
+  </nav>
+</header>
+
+<div class="page-wrap">
+  <div class="greeting">
+    <h1 id="greetingName">Your bookings</h1>
+    <p>Everything you've booked with any business, in one place.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="upcoming" onclick="switchTab('upcoming')">Upcoming</button>
+    <button class="tab" data-tab="past" onclick="switchTab('past')">Past</button>
+  </div>
+
+  <div id="bookingsList">
+    <div class="loading-state">Loading your bookings...</div>
+  </div>
+</div>
+
+<script>
+  const sb = supabaseClient;
+  const token = localStorage.getItem('customer_session_token');
+
+  let allBookings = [];
+  let activeTab = 'upcoming';
+  let customer = null;
+
+  function todayStr(){
+    return new Date().toISOString().split('T')[0];
+  }
+
+  async function init(){
+    if (!token){
+      window.location.href = 'customer-login.html?return=my-bookings.html';
+      return;
+    }
+
+    const { data: sessionRows, error: sessionError } = await sb.rpc('customer_session_check', { p_token: token });
+
+    if (sessionError || !sessionRows || sessionRows.length === 0){
+      localStorage.removeItem('customer_session_token');
+      window.location.href = 'customer-login.html?return=my-bookings.html';
+      return;
+    }
+
+    customer = sessionRows[0];
+    document.getElementById('greetingName').textContent = `Hi ${customer.full_name.split(' ')[0]}, here's your bookings`;
+
+    await loadBookings();
+  }
+
+  async function loadBookings(){
+    const { data, error } = await sb
+      .from('bookings')
+      .select(`
+        id, booking_date, booking_time, status,
+        businesses ( business_name, whatsapp, slug ),
+        services ( name )
+      `)
+      .eq('customer_id', customer.customer_id)
+      .order('booking_date', { ascending: true })
+      .order('booking_time', { ascending: true });
+
+    if (error){
+      document.getElementById('bookingsList').innerHTML =
+        `<div class="loading-state">Something went wrong loading your bookings. Please refresh and try again.</div>`;
+      return;
+    }
+
+    allBookings = data || [];
+    render();
+  }
+
+  function switchTab(tab){
+    activeTab = tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    render();
+  }
+
+  function render(){
+    const today = todayStr();
+    const filtered = allBookings.filter(b => {
+      if (activeTab === 'upcoming') return b.booking_date >= today && b.status !== 'cancelled';
+      return b.booking_date < today || b.status === 'cancelled';
+    });
+
+    const list = document.getElementById('bookingsList');
+
+    if (filtered.length === 0){
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📅</div>
+          <p>${activeTab === 'upcoming'
+            ? "You don't have any upcoming bookings yet."
+            : "No past bookings to show."}</p>
+          ${activeTab === 'upcoming' ? `<p>Find a business and <a href="index.html">book your first appointment</a>.</p>` : ''}
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = filtered.map(b => {
+      const biz = b.businesses || {};
+      const svc = b.services || {};
+      const waLink = biz.whatsapp
+        ? `https://wa.me/${biz.whatsapp.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(`Hi! Following up on my booking for ${svc.name || 'my appointment'} on ${b.booking_date} at ${b.booking_time?.slice(0,5)}.`)}`
+        : null;
+
+      const canCancel = activeTab === 'upcoming' && b.status !== 'cancelled';
+
+      return `
+        <div class="booking-card">
+          <div class="booking-top">
+            <div>
+              <div class="booking-business">${escapeHtml(biz.business_name || 'Business')}</div>
+              <div class="booking-service">${escapeHtml(svc.name || 'Service')}</div>
+            </div>
+            <span class="status-pill status-${b.status}">${b.status.replace('_',' ')}</span>
+          </div>
+          <div class="booking-when">${b.booking_date} at ${b.booking_time ? b.booking_time.slice(0,5) : ''}</div>
+          <div class="booking-actions">
+            ${waLink ? `<a class="btn-small" href="${waLink}" target="_blank" rel="noopener">Message on WhatsApp</a>` : ''}
+            ${canCancel ? `<button class="btn-small danger" onclick="cancelBooking('${b.id}')">Cancel</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function cancelBooking(bookingId){
+    if (!confirm('Cancel this booking? This can\'t be undone.')) return;
+
+    const { error } = await sb
+      .from('bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', bookingId)
+      .eq('customer_id', customer.customer_id);
+
+    if (error){
+      alert('Could not cancel this booking: ' + error.message);
+      return;
+    }
+
+    await loadBookings();
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem('customer_session_token');
+    window.location.href = 'index.html';
+  });
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  init();
+</script>
+
+</body>
+</html>
