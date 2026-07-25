@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -216,6 +216,10 @@
         </div>
       </div>
 
+      <label>Notification email</label>
+      <input type="email" id="biz_notification_email" placeholder="you@example.com">
+      <p class="hint">We'll email you here every time a customer books an appointment.</p>
+
       <div class="row-2">
         <div>
           <label>City</label>
@@ -332,12 +336,6 @@
 
 <script>
   // ---- Supabase client ----
-  // supabase-client.js defines a top-level `supabaseClient` variable (not attached
-  // to window), so we reference it directly here — both scripts share the same
-  // global scope since neither is loaded as a module.
-  // Named `sb` (not `supabase`) because the Supabase CDN script itself already
-  // creates a global called `supabase` — reusing that name causes a fatal
-  // "already been declared" error that silently breaks the whole page.
   const sb = supabaseClient;
 
   let currentStep = 1;
@@ -537,6 +535,7 @@
           description: document.getElementById('biz_description').value.trim(),
           phone: phone,
           whatsapp: document.getElementById('biz_whatsapp').value.trim(),
+          notification_email: document.getElementById('biz_notification_email').value.trim() || null,
           website: document.getElementById('biz_website').value.trim(),
           instagram: document.getElementById('biz_instagram').value.trim(),
           facebook: document.getElementById('biz_facebook').value.trim(),
