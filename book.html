@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -264,9 +264,11 @@
       try {
         const pending = JSON.parse(pendingRaw);
         if (pending.slug === slug){
-          const matchedService = services.find(s => s.id === pending.serviceId);
-          if (matchedService){
-            selectedService = matchedService;
+          const matchedServices = (pending.serviceIds || [])
+            .map(id => services.find(s => s.id === id))
+            .filter(Boolean);
+          if (matchedServices.length > 0){
+            cart = matchedServices;
             selectedDate = pending.date;
             selectedTime = pending.time;
             render();
@@ -329,6 +331,16 @@
 
         <div class="service-grid" id="servicesList"></div>
 
+        <div class="cart-summary" id="cartSummary">
+          <h3>Your services</h3>
+          <div id="cartRows"></div>
+          <div class="cart-total">
+            <span>Total</span>
+            <span id="cartTotalPrice">₦0</span>
+          </div>
+          <button class="btn btn-primary cart-continue-btn" id="cartContinueBtn" onclick="proceedToDateTime()">Continue to date & time →</button>
+        </div>
+
         <div class="card" id="dateTimeCard" style="display:none; margin-top:20px;">
           <h2>Pick a date & time</h2>
           <p class="step-hint">Only real open slots are shown below.</p>
@@ -376,26 +388,76 @@
     services.forEach(s => {
       const el = document.createElement('div');
       el.className = 'service-card';
+      const inCart = cart.some(c => c.id === s.id);
       el.innerHTML = `
         <div class="svc-icon">${categoryIcon(business.category)}</div>
         <div class="svc-main">
           <div class="svc-name">${escapeHtml(s.name)}</div>
           <div class="svc-duration">${s.duration_minutes} min</div>
+          <div class="svc-add-row">
+            <button class="svc-add-btn ${inCart ? 'added' : ''}" data-service-id="${s.id}">${inCart ? '✓ Added' : '+ Add to cart'}</button>
+          </div>
         </div>
         <div class="svc-price">₦${Number(s.price).toLocaleString()}</div>
       `;
-      el.addEventListener('click', () => selectService(s, el));
+      el.querySelector('.svc-add-btn').addEventListener('click', () => toggleCartItem(s));
       list.appendChild(el);
     });
 
     document.getElementById('dateInput').min = new Date().toISOString().split('T')[0];
     document.getElementById('dateInput').addEventListener('change', onDateChange);
+
+    renderCart();
   }
 
-  function selectService(service, el){
-    selectedService = service;
-    document.querySelectorAll('.service-card').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
+  function toggleCartItem(service){
+    const idx = cart.findIndex(c => c.id === service.id);
+    if (idx >= 0){
+      cart.splice(idx, 1);
+    } else {
+      cart.push(service);
+    }
+    render();
+    // Re-fetch times if a date was already picked, since total duration just changed.
+    if (selectedDate && cart.length > 0){
+      onDateChange();
+    }
+  }
+
+  function renderCart(){
+    const summary = document.getElementById('cartSummary');
+    const rows = document.getElementById('cartRows');
+    const totalPriceEl = document.getElementById('cartTotalPrice');
+
+    if (cart.length === 0){
+      summary.classList.remove('visible');
+      return;
+    }
+
+    summary.classList.add('visible');
+    rows.innerHTML = cart.map(s => `
+      <div class="cart-row">
+        <span>${escapeHtml(s.name)} <span style="color:var(--text-faint);">(${s.duration_minutes} min)</span></span>
+        <span style="display:flex;align-items:center;gap:10px;">
+          ₦${Number(s.price).toLocaleString()}
+          <button class="cart-remove" data-remove-id="${s.id}">Remove</button>
+        </span>
+      </div>
+    `).join('');
+
+    rows.querySelectorAll('.cart-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.removeId;
+        const svc = cart.find(c => c.id === id);
+        if (svc) toggleCartItem(svc);
+      });
+    });
+
+    const total = cart.reduce((sum, s) => sum + Number(s.price), 0);
+    totalPriceEl.textContent = '₦' + total.toLocaleString();
+  }
+
+  function proceedToDateTime(){
     document.getElementById('dateTimeCard').style.display = 'block';
     document.getElementById('detailsCard').style.display = 'none';
     selectedTime = null;
@@ -411,7 +473,7 @@
     const grid = document.getElementById('slotGrid');
     grid.innerHTML = '';
 
-    if (!dateVal || !selectedService){
+    if (!dateVal || cart.length === 0){
       return;
     }
 
@@ -425,16 +487,16 @@
     }
 
     const interval = business.appointment_interval_minutes || 30;
-    const slots = [];
+    const totalDuration = cart.reduce((sum, s) => sum + s.duration_minutes, 0);
+
+    const candidateSlots = [];
     let [oh, om] = hours.open.split(':').map(Number);
     let [ch, cm] = hours.close.split(':').map(Number);
     let cursor = oh * 60 + om;
     const closeMinutes = ch * 60 + cm;
 
-    while (cursor + selectedService.duration_minutes <= closeMinutes){
-      const h = Math.floor(cursor / 60).toString().padStart(2, '0');
-      const m = (cursor % 60).toString().padStart(2, '0');
-      slots.push(`${h}:${m}`);
+    while (cursor + totalDuration <= closeMinutes){
+      candidateSlots.push(cursor);
       cursor += interval;
     }
 
@@ -446,20 +508,32 @@
       .neq('status', 'cancelled');
 
     const takenTimes = new Set((existingBookings || []).map(b => b.booking_time.slice(0,5)));
-    const availableSlots = slots.filter(s => !takenTimes.has(s));
+
+    // A candidate start time is only valid if none of the back-to-back sub-slots
+    // it would create (one per cart item, stacked in sequence) collide with an
+    // existing booking's start time.
+    const availableSlots = candidateSlots.filter(startMinutes => {
+      let t = startMinutes;
+      for (const svc of cart){
+        if (takenTimes.has(minutesToTimeStr(t))) return false;
+        t += svc.duration_minutes;
+      }
+      return true;
+    });
 
     if (availableSlots.length === 0){
       grid.innerHTML = `<div class="slot-empty">No available times left on this date. Please try another date.</div>`;
       return;
     }
 
-    availableSlots.forEach(time => {
+    availableSlots.forEach(startMinutes => {
+      const timeStr = minutesToTimeStr(startMinutes);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'slot-btn';
-      btn.textContent = time;
+      btn.textContent = timeStr;
       btn.addEventListener('click', () => {
-        selectedTime = time;
+        selectedTime = timeStr;
         document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         const detailsCard = document.getElementById('detailsCard');
@@ -470,6 +544,16 @@
     });
   }
 
+  function minutesToTimeStr(totalMinutes){
+    const h = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+    const m = (totalMinutes % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
+  }
+  function timeStrToMinutes(timeStr){
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+  }
+
   async function submitBooking(){
     const errorBanner = document.getElementById('errorBanner');
     errorBanner.style.display = 'none';
@@ -478,8 +562,8 @@
     const phone = document.getElementById('customerPhone').value.trim();
     const email = document.getElementById('customerEmail').value.trim();
 
-    if (!selectedService || !selectedDate || !selectedTime){
-      showBookingError('Please choose a service, date, and time first.');
+    if (cart.length === 0 || !selectedDate || !selectedTime){
+      showBookingError('Please add at least one service and choose a date and time first.');
       return;
     }
     if (!name || !phone){
@@ -492,7 +576,7 @@
     // they'll land right back here with the booking completed automatically.
     if (!loggedInCustomer){
       sessionStorage.setItem('pendingBooking', JSON.stringify({
-        slug, serviceId: selectedService.id, date: selectedDate, time: selectedTime,
+        slug, serviceIds: cart.map(s => s.id), date: selectedDate, time: selectedTime,
         name, phone, email
       }));
       const returnUrl = window.location.href;
@@ -512,20 +596,31 @@
 
     const status = business.booking_approval === 'manual' ? 'pending' : 'confirmed';
 
-    const { error } = await sb.from('bookings').insert({
-      business_id: business.id,
-      service_id: selectedService.id,
-      customer_id: loggedInCustomer ? loggedInCustomer.customer_id : null,
-      customer_name: name,
-      customer_phone: phone,
-      customer_email: email || null,
-      booking_date: selectedDate,
-      booking_time: selectedTime,
-      status: status
+    // One row per service, stacked back-to-back starting at selectedTime.
+    let cursorMinutes = timeStrToMinutes(selectedTime);
+    const bookingRows = cart.map(svc => {
+      const rowTime = minutesToTimeStr(cursorMinutes);
+      cursorMinutes += svc.duration_minutes;
+      return {
+        business_id: business.id,
+        service_id: svc.id,
+        customer_id: loggedInCustomer ? loggedInCustomer.customer_id : null,
+        customer_name: name,
+        customer_phone: phone,
+        customer_email: email || null,
+        booking_date: selectedDate,
+        booking_time: rowTime,
+        status: status,
+        _serviceName: rowTime // placeholder removed below, kept for clarity during insert mapping
+      };
     });
+    // Strip the helper field before inserting — Supabase would reject an unknown column.
+    const insertPayload = bookingRows.map(({ _serviceName, ...row }) => row);
+
+    const { error } = await sb.from('bookings').insert(insertPayload);
 
     if (error){
-      showBookingError('That slot was just taken, or something went wrong: ' + error.message + '. Please pick another time.');
+      showBookingError('One of those slots was just taken, or something went wrong: ' + error.message + '. Please pick another time.');
       if (btn){
         btn.disabled = false;
         btn.textContent = 'Confirm booking';
@@ -535,18 +630,29 @@
 
     sessionStorage.removeItem('pendingBooking');
 
-    // Send the customer a confirmation email directly from the browser via EmailJS.
-    // This runs independently of the booking save above — if it fails for any
-    // reason, we don't want to block or undo the booking itself, just log it.
+    // Notify the customer, and separately notify the business owner —
+    // two independent EmailJS sends, same account, different templates.
     if (email) {
+      const summary = cart.map((svc, i) => `${svc.name} at ${bookingRows[i].booking_time}`).join(', ');
       emailjs.send("service_7fkvpur", "template_v14jq04", {
         email: email,
         appointment_date: selectedDate,
-        appointment_time: selectedTime
+        appointment_time: summary
       }).catch(err => console.error('Confirmation email failed to send:', err));
     }
 
-    showConfirmation(status);
+    if (business.notification_email) {
+      const servicesSummary = cart.map((svc, i) => `${svc.name} (${bookingRows[i].booking_time})`).join(', ');
+      emailjs.send("service_7fkvpur", "REPLACE_WITH_OWNER_TEMPLATE_ID", {
+        owner_email: business.notification_email,
+        customer_name: name,
+        customer_phone: phone,
+        services_summary: servicesSummary,
+        appointment_date: selectedDate
+      }).catch(err => console.error('Owner notification email failed to send:', err));
+    }
+
+    showConfirmation(status, bookingRows);
   }
 
   function showBookingError(msg){
@@ -556,24 +662,36 @@
     errorBanner.scrollIntoView({ behavior:'smooth', block:'center' });
   }
 
-  function showConfirmation(status){
+  function showConfirmation(status, bookingRows){
     const message = status === 'pending'
       ? "Your request has been sent. The business will confirm it shortly."
       : "Your appointment is confirmed. See you then!";
 
+    const serviceListText = cart.map((svc, i) => `${svc.name} (${bookingRows[i].booking_time})`).join(', ');
+    const nameField = document.getElementById('customerName');
+
     const waLink = business.whatsapp
-      ? `https://wa.me/${business.whatsapp.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(`Hi! I just booked ${selectedService.name} on ${selectedDate} at ${selectedTime}. My name is ${document.getElementById('customerName') ? document.getElementById('customerName').value : ''}.`)}`
+      ? `https://wa.me/${business.whatsapp.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(`Hi! I just booked ${serviceListText} on ${selectedDate}. My name is ${nameField ? nameField.value : ''}.`)}`
       : null;
+
+    const serviceRowsHtml = cart.map((svc, i) => `
+      <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:6px 0;">
+        <span>${escapeHtml(svc.name)}</span>
+        <span style="color:var(--text-muted);">${bookingRows[i].booking_time}</span>
+      </div>
+    `).join('');
 
     document.querySelector('.page-shell').innerHTML = `
       <div class="card" style="text-align:center;padding:40px 26px;">
         <div class="confirm-icon">✓</div>
         <h1 class="display" style="margin-bottom:8px;font-size:24px;">Booking received</h1>
         <p style="color:var(--text-muted);margin-bottom:4px;">${message}</p>
-        <p style="color:var(--text-muted);font-size:13.5px;margin-bottom:24px;">
-          ${escapeHtml(selectedService.name)} with ${escapeHtml(business.business_name)}<br>
-          ${selectedDate} at ${selectedTime}
+        <p style="color:var(--text-muted);font-size:13.5px;margin-bottom:14px;">
+          with ${escapeHtml(business.business_name)} on ${selectedDate}
         </p>
+        <div style="text-align:left;background:var(--blue-light);border-radius:10px;padding:12px 18px;margin-bottom:24px;">
+          ${serviceRowsHtml}
+        </div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
           ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="btn btn-primary" style="width:auto;">Message us on WhatsApp</a>` : ''}
           <a href="my-bookings.html" class="btn" style="width:auto;background:var(--blue-light);color:var(--navy);">View my bookings</a>
