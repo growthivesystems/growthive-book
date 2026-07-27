@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -643,7 +643,7 @@
 
     if (business.notification_email) {
       const servicesSummary = cart.map((svc, i) => `${svc.name} (${bookingRows[i].booking_time})`).join(', ');
-      emailjs.send("service_7fkvpur", template_0w9e4sg, {
+      emailjs.send("service_7fkvpur", "REPLACE_WITH_OWNER_TEMPLATE_ID", {
         owner_email: business.notification_email,
         customer_name: name,
         customer_phone: phone,
