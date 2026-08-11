@@ -179,6 +179,13 @@
   let selectedTime = null;
   let loggedInCustomer = null;
 
+  // --- Flow / form state that must survive a re-render triggered by adding
+  // or removing a cart item mid-flow (see toggleCartItem / restoreFormValues) ---
+  let flowStage = 'services'; // 'services' | 'datetime' | 'details'
+  let formName = '';
+  let formPhone = '';
+  let formEmail = '';
+
   const DAY_INDEX_TO_NAME = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
   const CATEGORY_ICON = {
@@ -271,6 +278,7 @@
             cart = matchedServices;
             selectedDate = pending.date;
             selectedTime = pending.time;
+            flowStage = 'details';
             render();
             await finalizeBooking(pending.name, pending.phone, pending.email);
             return;
@@ -405,22 +413,61 @@
     });
 
     document.getElementById('dateInput').min = new Date().toISOString().split('T')[0];
-    document.getElementById('dateInput').addEventListener('change', onDateChange);
+    document.getElementById('dateInput').addEventListener('change', () => onDateChange());
 
     renderCart();
   }
 
-  function toggleCartItem(service){
+  // Snapshot whatever the customer has typed into the details form so it
+  // survives the full re-render triggered by adding/removing a cart item.
+  function captureFormValues(){
+    const n = document.getElementById('customerName');
+    const p = document.getElementById('customerPhone');
+    const e = document.getElementById('customerEmail');
+    if (n) formName = n.value;
+    if (p) formPhone = p.value;
+    if (e) formEmail = e.value;
+  }
+
+  function restoreFormValues(){
+    const n = document.getElementById('customerName');
+    const p = document.getElementById('customerPhone');
+    const e = document.getElementById('customerEmail');
+    if (n && formName) n.value = formName;
+    if (p && formPhone) p.value = formPhone;
+    if (e && formEmail) e.value = formEmail;
+  }
+
+  async function toggleCartItem(service){
+    // Without this, adding/removing a service while the customer is already
+    // on the date/time or details step wiped their date pick, time pick, and
+    // anything they'd typed, because render() rebuilds the whole page.
+    captureFormValues();
+
     const idx = cart.findIndex(c => c.id === service.id);
     if (idx >= 0){
       cart.splice(idx, 1);
     } else {
       cart.push(service);
     }
+
     render();
-    // Re-fetch times if a date was already picked, since total duration just changed.
-    if (selectedDate && cart.length > 0){
-      onDateChange();
+    restoreFormValues();
+
+    if (cart.length === 0){
+      flowStage = 'services';
+      selectedTime = null;
+      return;
+    }
+
+    if (flowStage === 'datetime' || flowStage === 'details'){
+      const dateTimeCard = document.getElementById('dateTimeCard');
+      dateTimeCard.style.display = 'block';
+      const dateInput = document.getElementById('dateInput');
+      if (dateInput && selectedDate) dateInput.value = selectedDate;
+      if (selectedDate){
+        await onDateChange(selectedTime);
+      }
     }
   }
 
@@ -458,6 +505,7 @@
   }
 
   function proceedToDateTime(){
+    flowStage = 'datetime';
     document.getElementById('dateTimeCard').style.display = 'block';
     document.getElementById('detailsCard').style.display = 'none';
     selectedTime = null;
@@ -466,8 +514,12 @@
     if (selectedDate) onDateChange();
   }
 
-  async function onDateChange(){
-    const dateVal = document.getElementById('dateInput').value;
+  // preferredTime: when set, tries to re-select this time after recomputing
+  // availability (used when a cart change forces us to recheck slots without
+  // losing the customer's previous choice).
+  async function onDateChange(preferredTime = null){
+    const dateInput = document.getElementById('dateInput');
+    const dateVal = dateInput ? dateInput.value : '';
     selectedDate = dateVal;
     selectedTime = null;
     const grid = document.getElementById('slotGrid');
@@ -502,23 +554,29 @@
 
     const { data: existingBookings } = await sb
       .from('bookings')
-      .select('booking_time')
+      .select('booking_time, service_id')
       .eq('business_id', business.id)
       .eq('booking_date', dateVal)
       .neq('status', 'cancelled');
 
-    const takenTimes = new Set((existingBookings || []).map(b => b.booking_time.slice(0,5)));
+    const serviceDurationById = {};
+    services.forEach(s => { serviceDurationById[s.id] = s.duration_minutes; });
 
-    // A candidate start time is only valid if none of the back-to-back sub-slots
-    // it would create (one per cart item, stacked in sequence) collide with an
-    // existing booking's start time.
+    // Each existing booking occupies [start, start+duration). Comparing full
+    // ranges (instead of just checking exact start-time matches) prevents a
+    // new cart's slot from overlapping the middle of an existing appointment
+    // of a different length.
+    const existingIntervals = (existingBookings || []).map(b => {
+      const start = timeStrToMinutes(b.booking_time.slice(0,5));
+      const duration = serviceDurationById[b.service_id] || interval;
+      return [start, start + duration];
+    });
+
+    const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && bStart < aEnd;
+
     const availableSlots = candidateSlots.filter(startMinutes => {
-      let t = startMinutes;
-      for (const svc of cart){
-        if (takenTimes.has(minutesToTimeStr(t))) return false;
-        t += svc.duration_minutes;
-      }
-      return true;
+      const candidateEnd = startMinutes + totalDuration;
+      return !existingIntervals.some(([exStart, exEnd]) => overlaps(startMinutes, candidateEnd, exStart, exEnd));
     });
 
     if (availableSlots.length === 0){
@@ -526,14 +584,21 @@
       return;
     }
 
+    let restoredSelection = false;
+
     availableSlots.forEach(startMinutes => {
       const timeStr = minutesToTimeStr(startMinutes);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'slot-btn';
       btn.textContent = timeStr;
+      if (preferredTime && timeStr === preferredTime){
+        btn.classList.add('selected');
+        restoredSelection = true;
+      }
       btn.addEventListener('click', () => {
         selectedTime = timeStr;
+        flowStage = 'details';
         document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         const detailsCard = document.getElementById('detailsCard');
@@ -542,6 +607,22 @@
       });
       grid.appendChild(btn);
     });
+
+    if (restoredSelection){
+      selectedTime = preferredTime;
+      if (flowStage === 'details'){
+        document.getElementById('detailsCard').style.display = 'block';
+      }
+    } else if (flowStage === 'details'){
+      // The previously chosen time no longer works for this combination of
+      // services — send the customer back to pick a new time instead of
+      // silently keeping a stale selection.
+      flowStage = 'datetime';
+      document.getElementById('detailsCard').style.display = 'none';
+      if (preferredTime){
+        showBookingError('Your previously selected time is no longer available for this combination of services — please pick a new time.');
+      }
+    }
   }
 
   function minutesToTimeStr(totalMinutes){
@@ -610,14 +691,11 @@
         customer_email: email || null,
         booking_date: selectedDate,
         booking_time: rowTime,
-        status: status,
-        _serviceName: rowTime // placeholder removed below, kept for clarity during insert mapping
+        status: status
       };
     });
-    // Strip the helper field before inserting — Supabase would reject an unknown column.
-    const insertPayload = bookingRows.map(({ _serviceName, ...row }) => row);
 
-    const { error } = await sb.from('bookings').insert(insertPayload);
+    const { error } = await sb.from('bookings').insert(bookingRows);
 
     if (error){
       showBookingError('One of those slots was just taken, or something went wrong: ' + error.message + '. Please pick another time.');
@@ -630,27 +708,34 @@
 
     sessionStorage.removeItem('pendingBooking');
 
-    // Notify the customer, and separately notify the business owner —
-    // two independent EmailJS sends, same account, different templates.
-    if (email) {
+    // Notify the customer, then the business owner — staggered by ~1.1s so
+    // we stay under EmailJS's 1-request-per-second limit. Sending both back
+    // to back was causing the second (owner) email to fail with a 429.
+    const sendCustomerEmail = () => {
+      if (!email) return Promise.resolve();
       const summary = cart.map((svc, i) => `${svc.name} at ${bookingRows[i].booking_time}`).join(', ');
-      emailjs.send("service_7fkvpur", "template_v14jq04", {
+      return emailjs.send("service_7fkvpur", "template_v14jq04", {
         email: email,
         appointment_date: selectedDate,
         appointment_time: summary
       }).catch(err => console.error('Confirmation email failed to send:', err));
-    }
+    };
 
-    if (business.notification_email) {
+    const sendOwnerEmail = () => {
+      if (!business.notification_email) return Promise.resolve();
       const servicesSummary = cart.map((svc, i) => `${svc.name} (${bookingRows[i].booking_time})`).join(', ');
-      emailjs.send("service_7fkvpur", "REPLACE_WITH_OWNER_TEMPLATE_ID", {
+      return emailjs.send("service_7fkvpur", "template_0w9e4sg", {
         owner_email: business.notification_email,
         customer_name: name,
         customer_phone: phone,
         services_summary: servicesSummary,
         appointment_date: selectedDate
       }).catch(err => console.error('Owner notification email failed to send:', err));
-    }
+    };
+
+    sendCustomerEmail().then(() => {
+      setTimeout(sendOwnerEmail, 1100);
+    });
 
     showConfirmation(status, bookingRows);
   }
