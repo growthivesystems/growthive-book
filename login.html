@@ -137,7 +137,9 @@
       showError('Enter your email above first, then click "Forgot password?" again.');
       return;
     }
-    const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://growthivesystems.github.io/growthive-book/reset-password.html'
+    });
     if(error){
       showError(error.message);
     } else {
