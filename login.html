@@ -16,6 +16,7 @@
   .form-card h1{font-size:28px;margin-bottom:8px;}
   .form-card > p{margin-bottom:32px;}
   .forgot-link{display:block;text-align:right;font-size:13.5px;color:var(--royal);font-weight:500;margin:-10px 0 24px;}
+  .forgot-link.is-disabled{color:var(--text-light);pointer-events:none;cursor:default;}
   .switch-link{text-align:center;margin-top:24px;font-size:14px;color:var(--text-light);}
   .switch-link a{color:var(--royal);font-weight:600;}
 </style>
@@ -129,14 +130,42 @@
     }
   });
 
-  document.getElementById('forgotLink').addEventListener('click', async (e) => {
+  const forgotLink = document.getElementById('forgotLink');
+  const FORGOT_COOLDOWN_SECONDS = 60;
+  let forgotCooldownActive = false;
+
+  function startForgotCooldown(){
+    forgotCooldownActive = true;
+    forgotLink.classList.add('is-disabled');
+    let remaining = FORGOT_COOLDOWN_SECONDS;
+    forgotLink.textContent = 'Resend in ' + remaining + 's';
+
+    const countdownTimer = setInterval(() => {
+      remaining -= 1;
+      if(remaining <= 0){
+        clearInterval(countdownTimer);
+        forgotCooldownActive = false;
+        forgotLink.classList.remove('is-disabled');
+        forgotLink.textContent = 'Forgot password?';
+      } else {
+        forgotLink.textContent = 'Resend in ' + remaining + 's';
+      }
+    }, 1000);
+  }
+
+  forgotLink.addEventListener('click', async (e) => {
     e.preventDefault();
+    if(forgotCooldownActive) return;
+
     const email = document.getElementById('email').value.trim();
     if(!email || !email.includes('@')){
       document.getElementById('emailField').classList.add('has-error');
       showError('Enter your email above first, then click "Forgot password?" again.');
       return;
     }
+
+    startForgotCooldown();
+
     const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
       redirectTo: 'https://growthivesystems.github.io/growthive-book/reset-password.html'
     });
