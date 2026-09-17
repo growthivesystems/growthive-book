@@ -95,7 +95,7 @@
   .card h2{font-size:16px;margin:0 0 18px;}
   label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;margin-top:16px;}
   label:first-of-type{margin-top:0;}
-  input[type=text], input[type=tel], input[type=number], input[type=time], select, textarea{
+  input[type=text], input[type=tel], input[type=number], input[type=time], input[type=file], select, textarea{
     width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:9px;
     font-size:14px;font-family:inherit;color:var(--navy);background:#fff;
   }
@@ -141,6 +141,26 @@
   .day-times input{padding:8px 10px;font-size:13px;}
   .day-times span{color:var(--text-faint);font-size:13px;}
   .day-row.disabled .day-times{opacity:0.35;pointer-events:none;}
+
+  /* --- Photos / gallery --- */
+  .gallery-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
+    gap:10px;margin-bottom:18px;
+  }
+  .gallery-thumb{
+    position:relative;border-radius:10px;overflow:hidden;aspect-ratio:1;
+    background:#F1F3F6;border:1px solid var(--border);
+  }
+  .gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .remove-photo-btn{
+    position:absolute;top:5px;right:5px;background:rgba(10,31,68,0.65);color:#fff;
+    border:none;border-radius:6px;width:22px;height:22px;font-size:12px;cursor:pointer;
+    line-height:1;display:flex;align-items:center;justify-content:center;
+  }
+  .remove-photo-btn:hover{background:rgba(220,38,38,0.85);}
+  .photo-upload-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .photo-upload-row input[type=file]{flex:1;min-width:180px;}
+  .gallery-hint{font-size:12px;color:var(--text-muted);margin-top:8px;}
 </style>
 </head>
 <body>
@@ -159,10 +179,12 @@
   const shell = document.getElementById('shell');
 
   const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  const GALLERY_BUCKET = 'gallery-images'; // must match the Storage bucket name in Supabase
 
   let business = null;
   let allBookings = [];
   let allServices = [];
+  let allGalleryImages = [];
   let currentPageTab = 'bookings';
   let currentBookingTab = 'upcoming';
   let serviceEditIdCounter = 0;
@@ -190,7 +212,7 @@
     }
     business = biz;
 
-    await Promise.all([loadBookings(), loadServices()]);
+    await Promise.all([loadBookings(), loadServices(), loadGallery()]);
     render();
   }
 
@@ -220,6 +242,19 @@
       return;
     }
     allServices = data || [];
+  }
+
+  async function loadGallery(){
+    const { data, error } = await sb
+      .from('gallery_images')
+      .select('*')
+      .eq('business_id', business.id)
+      .order('created_at', { ascending: false });
+    if (error){
+      console.error(error);
+      return;
+    }
+    allGalleryImages = data || [];
   }
 
   function render(){
@@ -414,6 +449,16 @@
       </div>
 
       <div class="card">
+        <h2>Photos</h2>
+        <div class="gallery-grid" id="galleryGrid"></div>
+        <div class="photo-upload-row">
+          <input type="file" id="galleryFileInput" accept="image/*">
+          <button class="btn btn-primary" id="uploadPhotoBtn">Upload photo</button>
+        </div>
+        <div class="gallery-hint">These photos show on your public booking page. JPG or PNG, one at a time.</div>
+      </div>
+
+      <div class="card">
         <h2>Availability</h2>
         <div id="manageDaysList"></div>
         <label>Appointment slot length</label>
@@ -437,9 +482,11 @@
     document.getElementById('saveInfoBtn').addEventListener('click', saveBusinessInfo);
     document.getElementById('addServiceEditBtn').addEventListener('click', () => addServiceEditRow());
     document.getElementById('saveServicesBtn').addEventListener('click', saveServices);
+    document.getElementById('uploadPhotoBtn').addEventListener('click', handleAddPhoto);
     document.getElementById('saveAvailabilityBtn').addEventListener('click', saveAvailability);
 
     renderServiceEditRows();
+    renderGalleryGrid();
     renderManageDays();
   }
 
@@ -592,6 +639,85 @@
     btn.textContent = 'Save services';
     showManageMessage('Services saved.', false);
     renderServiceEditRows();
+  }
+
+  function renderGalleryGrid(){
+    const grid = document.getElementById('galleryGrid');
+    if (!grid) return;
+    if (allGalleryImages.length === 0){
+      grid.innerHTML = `<div class="empty-state" style="padding:16px;">No photos yet.</div>`;
+      return;
+    }
+    grid.innerHTML = '';
+    allGalleryImages.forEach(img => {
+      const thumb = document.createElement('div');
+      thumb.className = 'gallery-thumb';
+      thumb.innerHTML = `
+        <img src="${escapeAttr(img.image_url)}" alt="">
+        <button type="button" class="remove-photo-btn" title="Remove photo">✕</button>
+      `;
+      thumb.querySelector('.remove-photo-btn').addEventListener('click', () => deleteGalleryImage(img.id));
+      grid.appendChild(thumb);
+    });
+  }
+
+  async function handleAddPhoto(){
+    const input = document.getElementById('galleryFileInput');
+    const file = input.files[0];
+    if (!file){
+      showManageMessage('Choose a photo first.', true);
+      return;
+    }
+
+    const btn = document.getElementById('uploadPhotoBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${business.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error: uploadError } = await sb.storage
+      .from(GALLERY_BUCKET)
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+
+    if (uploadError){
+      btn.disabled = false;
+      btn.textContent = 'Upload photo';
+      showManageMessage('Could not upload photo: ' + uploadError.message, true);
+      return;
+    }
+
+    const { data: publicUrlData } = sb.storage.from(GALLERY_BUCKET).getPublicUrl(path);
+    const publicUrl = publicUrlData.publicUrl;
+
+    const { error: insertError } = await sb.from('gallery_images').insert({
+      business_id: business.id,
+      image_url: publicUrl
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Upload photo';
+
+    if (insertError){
+      showManageMessage('Photo uploaded but could not be saved: ' + insertError.message, true);
+      return;
+    }
+
+    input.value = '';
+    await loadGallery();
+    renderGalleryGrid();
+    showManageMessage('Photo added.', false);
+  }
+
+  async function deleteGalleryImage(id){
+    if (!confirm('Remove this photo?')) return;
+    const { error } = await sb.from('gallery_images').delete().eq('id', id);
+    if (error){
+      showManageMessage('Could not remove photo: ' + error.message, true);
+      return;
+    }
+    await loadGallery();
+    renderGalleryGrid();
   }
 
   function renderManageDays(){
