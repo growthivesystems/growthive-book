@@ -10,3 +10,4 @@ const SUPABASE_URL = "https://wjmyyvccpsacqpvrbgch.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_yBtPRB9MZpeg_s1Wsq_Fcg_1QCOk4po";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
