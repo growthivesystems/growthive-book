@@ -1,0 +1,1382 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/monitor/manifest.json">
+<meta name="theme-color" content="#C9A84C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GrowthIve">
+<link rel="apple-touch-icon" href="/monitor/icons/icon-192.png">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/monitor/sw.js');}</script>
+<title>Inventory — GrowthIve Monitor</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  /* ── Inventory list ── */
+  .inv-list { display: flex; flex-direction: column; gap: 0; }
+  .inv-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; border-bottom: 1px solid var(--dark4);
+    transition: background 0.2s;
+  }
+  .inv-item:last-child { border-bottom: none; }
+  .inv-item:hover { background: var(--gold-dim); }
+  .inv-item.deleted-item {
+    opacity: 0.55; background: rgba(224,85,85,0.04);
+    border-left: 3px solid var(--danger);
+  }
+  .inv-num {
+    font-size: 0.75rem; color: var(--muted);
+    width: 24px; flex-shrink: 0; text-align: right;
+    font-family: var(--font-display);
+  }
+  .inv-name { flex: 1; font-weight: 500; color: var(--white2); font-size: 0.92rem; }
+  .inv-qty { font-weight: 700; font-family: var(--font-display); font-size: 1rem; width: 60px; text-align: center; }
+  .inv-price { color: var(--gold); font-size: 0.85rem; width: 100px; text-align: right; }
+  .inv-value { color: var(--muted); font-size: 0.82rem; width: 110px; text-align: right; }
+  .inv-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+
+  .security-note {
+    background: rgba(201,168,76,0.08); border: 1px solid var(--gold-border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 0.82rem; color: var(--muted); margin-bottom: 16px; line-height: 1.7;
+  }
+  .security-note strong { color: var(--gold); }
+
+  .verify-steps {
+    background: var(--dark3); border-radius: var(--radius-sm);
+    padding: 12px 14px; margin: 12px 0;
+    font-size: 0.82rem; color: var(--muted); line-height: 1.8;
+  }
+  .verify-steps span { display: block; padding: 3px 0; }
+  .verify-steps .step-num { color: var(--gold); font-weight: 600; margin-right: 6px; }
+
+  .export-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* ── Audit log styles ── */
+  .log-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--dark4);
+    transition: background 0.15s;
+  }
+  .log-row:last-child { border-bottom: none; }
+  .log-row:hover { background: var(--gold-dim); }
+  .log-icon {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem; flex-shrink: 0; margin-top: 2px;
+  }
+  .log-icon.added    { background: rgba(76,175,125,0.15);  color: var(--success); }
+  .log-icon.edited   { background: rgba(201,168,76,0.15);  color: var(--gold); }
+  .log-icon.deleted  { background: rgba(224,85,85,0.15);   color: var(--danger); }
+  .log-icon.restored { background: rgba(91,155,213,0.15);  color: var(--info); }
+  .log-icon.purged   { background: rgba(224,85,85,0.25);   color: var(--danger); }
+  .log-body { flex: 1; min-width: 0; }
+  .log-title { font-size: 0.88rem; font-weight: 500; color: var(--white2); margin-bottom: 3px; }
+  .log-title strong { color: var(--white); }
+  .log-detail { font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
+  .log-time { font-size: 0.72rem; color: var(--muted); flex-shrink: 0; text-align: right; white-space: nowrap; }
+  .log-change {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.75rem; margin-top: 4px;
+  }
+  .log-before { color: var(--danger); text-decoration: line-through; }
+  .log-arrow  { color: var(--muted); }
+  .log-after  { color: var(--success); font-weight: 600; }
+
+  /* ── Delete confirm ── */
+  .delete-confirm-input {
+    font-size: 1rem; font-weight: 700; letter-spacing: 0.12em;
+    text-align: center; border: 2px solid var(--danger) !important;
+    color: var(--danger) !important;
+  }
+  .delete-confirm-input:focus {
+    box-shadow: 0 0 0 3px rgba(224,85,85,0.2) !important;
+    border-color: var(--danger) !important;
+  }
+  .delete-warning-box {
+    background: rgba(224,85,85,0.08); border: 1px solid var(--danger);
+    border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 16px;
+    font-size: 0.85rem; color: var(--white2); line-height: 1.7;
+  }
+  .deleted-banner {
+    background: rgba(224,85,85,0.08); border: 1px solid var(--danger);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 0.82rem; color: var(--muted); margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; flex-wrap: wrap;
+  }
+
+  /* ── Suspicion flag ── */
+  .suspicion-flag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(224,85,85,0.15); border: 1px solid var(--danger);
+    border-radius: 20px; padding: 2px 10px;
+    font-size: 0.72rem; color: var(--danger); font-weight: 600;
+    margin-left: 8px;
+  }
+
+  /* ── Print / PDF styles ── */
+  #pdf-area {
+    display: none; position: fixed; inset: 0;
+    background: #fff; color: #111; z-index: 9999; padding: 48px;
+    font-family: 'Segoe UI', Georgia, sans-serif; overflow-y: auto;
+  }
+  #pdf-area .pdf-header {
+    border-bottom: 2px solid #111; padding-bottom: 16px; margin-bottom: 24px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  #pdf-area .pdf-biz { font-size: 1.6rem; font-weight: 700; }
+  #pdf-area .pdf-sub { font-size: 0.82rem; color: #555; margin-top: 2px; }
+  #pdf-area .pdf-meta { text-align: right; font-size: 0.8rem; color: #555; }
+  #pdf-area .pdf-summary {
+    display: flex; gap: 24px; flex-wrap: wrap;
+    background: #f9f9f9; padding: 14px 18px;
+    border-radius: 8px; margin-bottom: 24px;
+  }
+  #pdf-area .pdf-sum-item { text-align: center; }
+  #pdf-area .pdf-sum-label { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 0.1em; }
+  #pdf-area .pdf-sum-val { font-size: 1.2rem; font-weight: 700; color: #111; margin-top: 2px; }
+  #pdf-area table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  #pdf-area thead tr { background: #111; color: #fff; }
+  #pdf-area th { padding: 10px 12px; text-align: left; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; }
+  #pdf-area td { padding: 9px 12px; border-bottom: 1px solid #eee; }
+  #pdf-area tbody tr:nth-child(even) { background: #f9f9f9; }
+  #pdf-area .pdf-status-low       { color: #cc0000; font-weight: 600; font-size: 0.75rem; }
+  #pdf-area .pdf-status-ok        { color: #1a7a1a; font-size: 0.75rem; }
+  #pdf-area .pdf-status-unstocked { color: #888;    font-size: 0.75rem; font-style: italic; }
+  #pdf-area .pdf-status-negative  { color: #e05555; font-size: 0.75rem; font-style: italic; }
+  #pdf-area .pdf-footer {
+    margin-top: 40px; text-align: center; font-size: 0.72rem; color: #888;
+    border-top: 1px solid #ddd; padding-top: 16px;
+  }
+  .pdf-close-btn {
+    position: fixed; top: 16px; right: 20px; background: #111; color: #fff;
+    border: none; padding: 8px 18px; border-radius: 6px;
+    cursor: pointer; font-size: 0.85rem; z-index: 10000;
+  }
+
+  /* ── IMPORT STYLES ── */
+  .import-drop-zone {
+    border: 2px dashed var(--gold-border);
+    border-radius: var(--radius);
+    padding: 32px 20px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: rgba(201,168,76,0.03); margin-bottom: 16px;
+  }
+  .import-drop-zone:hover, .import-drop-zone.drag-over {
+    border-color: var(--gold); background: rgba(201,168,76,0.08);
+  }
+  .import-drop-icon { font-size: 2.4rem; margin-bottom: 10px; }
+  .import-drop-text { font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
+  .import-drop-text strong { color: var(--white2); }
+
+  .import-preview-table {
+    width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 4px;
+    max-height: 280px; overflow-y: auto; display: block;
+  }
+  .import-preview-table thead tr { background: var(--dark3); position: sticky; top: 0; }
+  .import-preview-table th {
+    padding: 8px 12px; text-align: left; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold);
+  }
+  .import-preview-table td { padding: 8px 12px; border-bottom: 1px solid var(--dark4); color: var(--white2); }
+  .import-preview-table tr:hover td { background: var(--gold-dim); }
+  .import-row-valid   { border-left: 3px solid var(--success); }
+  .import-row-warning { border-left: 3px solid var(--gold); }
+  .import-row-error   { border-left: 3px solid var(--danger); opacity: 0.6; }
+
+  .import-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .import-stat {
+    flex: 1; min-width: 80px; padding: 10px 14px;
+    background: var(--dark3); border-radius: var(--radius-sm);
+    text-align: center; border: 1px solid var(--gold-border);
+  }
+  .import-stat-val   { font-size: 1.2rem; font-weight: 700; }
+  .import-stat-label { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+  /* ── AUDIT LOG TOGGLE ── */
+  .audit-toggle-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; padding: 4px 0; user-select: none;
+  }
+  .audit-toggle-bar:hover .modal-title { color: var(--gold); }
+  .audit-chevron {
+    font-size: 0.9rem; color: var(--muted); transition: transform 0.25s;
+    display: inline-block;
+  }
+  .audit-chevron.open { transform: rotate(180deg); }
+  #audit-log-wrapper {
+    display: none; /* collapsed by default */
+    overflow: hidden;
+  }
+
+  @media print {
+    body * { visibility: hidden !important; }
+    #pdf-area, #pdf-area * { visibility: visible !important; }
+    #pdf-area {
+      position: fixed !important; top: 0; left: 0;
+      width: 100%; background: #fff !important;
+      color: #000 !important; padding: 32px !important;
+    }
+    .pdf-close-btn, .no-print { display: none !important; }
+  }
+  @media (max-width: 600px) {
+    .inv-price, .inv-value { display: none; }
+    .inv-item { padding: 12px 10px; }
+    .log-time { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="main-navbar"></div>
+<div class="layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="page-title">Inventory / Stock Manager</div>
+    <div class="page-subtitle">Track stock levels, get low-stock alerts, and monitor every change with a full audit trail.</div>
+
+    <!-- Low Stock Banner -->
+    <div id="low-stock-banner"></div>
+
+    <div class="grid-2">
+      <!-- Add Item -->
+      <div class="card">
+        <div class="modal-title" style="font-size:1.1rem;margin-bottom:20px;">➕ Add Stock Item</div>
+        <div id="form-msg"></div>
+        <div class="form-group">
+          <label>Item Name <span style="color:var(--muted);font-weight:400;">(goods or services)</span></label>
+          <input type="text" id="item-name" placeholder="e.g. Rice (50kg), BIAB Extension, Haircut…">
+        </div>
+        <div class="form-group">
+          <label>
+            Current Quantity
+            <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">
+              — leave blank or 0 for services / untracked goods
+            </span>
+          </label>
+          <input type="number" id="item-qty" placeholder="0" min="0">
+        </div>
+        <div class="form-group">
+          <label>Unit Price (₦)</label>
+          <input type="number" id="item-price" placeholder="0.00" min="0" step="0.01" oninput="showProfitHint('item')">
+        </div>
+        <div class="form-group">
+          <label>I bought it for (₦)
+            <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">— optional, shows your profit</span>
+          </label>
+          <input type="number" id="item-cost" placeholder="0.00" min="0" step="0.01" oninput="showProfitHint('item')">
+          <div id="item-profit-hint" style="font-size:0.8rem;margin-top:6px;min-height:18px;"></div>
+        </div>
+        <div class="form-group">
+          <label>Supplier
+            <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">— optional, who you buy it from</span>
+          </label>
+          <input type="text" id="item-supplier" placeholder="e.g. Mama Ngozi, Balogun Market" maxlength="80">
+        </div>
+        <div class="form-group">
+          <label>
+            Low Stock Alert Threshold
+            <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">
+              — only applies when qty &gt; 0
+            </span>
+          </label>
+          <input type="number" id="item-threshold" placeholder="5" min="1" value="5">
+        </div>
+        <button class="btn btn-gold" onclick="saveItem()">Add to Stock List →</button>
+      </div>
+
+      <!-- Summary -->
+      <div class="card">
+        <div class="modal-title" style="font-size:1.1rem;margin-bottom:20px;">📋 Stock Summary</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="padding:14px 16px;background:var(--dark3);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+            <div class="card-title" style="margin:0;">Total Items</div>
+            <div class="card-value gold" id="total-items">0</div>
+          </div>
+          <div style="padding:14px 16px;background:var(--dark3);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+            <div class="card-title" style="margin:0;">Low Stock</div>
+            <div class="card-value danger" id="low-count">0</div>
+          </div>
+          <div style="padding:14px 16px;background:var(--dark3);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+            <div class="card-title" style="margin:0;">Untracked / Services</div>
+            <div class="card-value" style="color:var(--muted);" id="unstocked-count">0</div>
+          </div>
+          <div style="padding:14px 16px;background:var(--dark3);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+            <div class="card-title" style="margin:0;">Total Stock Value</div>
+            <div class="card-value gold" id="total-value">₦0.00</div>
+          </div>
+          <div id="cost-cards" style="display:none;flex-direction:column;gap:10px;">
+            <div style="padding:14px 16px;background:var(--dark3);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+              <div class="card-title" style="margin:0;">What You Paid (stock)</div>
+              <div class="card-value" style="color:var(--muted);" id="total-cost">₦0.00</div>
+            </div>
+            <div style="padding:14px 16px;background:var(--dark3);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+              <div class="card-title" style="margin:0;">Expected Profit</div>
+              <div class="card-value success" id="expected-profit">₦0.00</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px;background:var(--dark3);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+            <div class="card-title" style="margin:0;">Recently Deleted</div>
+            <div class="card-value danger" id="deleted-count">0</div>
+          </div>
+        </div>
+        <div class="security-note" style="margin-top:16px;">
+          <strong>🔒 Full Audit Trail Active</strong><br>
+          Every addition, edit, deletion and restoration is permanently logged.
+          Deleted items are recoverable for <strong>30 days</strong>.
+          Items with <strong>Qty 0 or blank</strong> are treated as services / untracked goods —
+          no low-stock alert fires. They remain fully sellable and qty goes negative as sales are recorded.
+          Low-stock alerts only fire when a tracked qty drops below threshold.
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock List -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <div class="modal-title" style="font-size:1.1rem;margin:0;">Stock List</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="search-inv" placeholder="Search items…" style="width:150px;" oninput="filterList()">
+          <button class="btn btn-outline btn-sm" onclick="toggleDeleted()" id="deleted-toggle">🗑️ Deleted</button>
+          <div class="export-row">
+            <button class="btn btn-outline btn-sm" onclick="openImportModal()">📥 Import</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()">📊 CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="exportXLSX()">📗 Excel</button>
+            <button class="btn btn-outline btn-sm" onclick="exportPDF()">🖨️ PDF</button>
+          </div>
+        </div>
+      </div>
+      <!-- List Header -->
+      <div style="display:flex;gap:12px;padding:8px 16px;border-bottom:2px solid var(--gold-border);">
+        <div style="width:24px;"></div>
+        <div style="flex:1;font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);">Item Name</div>
+        <div style="width:60px;text-align:center;font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);">Qty</div>
+        <div style="width:100px;text-align:right;font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);" class="inv-price">Unit Price</div>
+        <div style="width:110px;text-align:right;font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);" class="inv-value">Value</div>
+        <div style="width:160px;font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);">Actions</div>
+      </div>
+      <div id="inv-list"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Audit Log — COLLAPSED BY DEFAULT -->
+    <div class="card">
+      <div class="audit-toggle-bar" onclick="toggleAuditLog()" id="audit-toggle-bar">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="modal-title" style="font-size:1.1rem;margin:0;">📋 Inventory Activity Log</div>
+          <span style="font-size:0.75rem;color:var(--muted);background:var(--dark3);padding:2px 8px;border-radius:10px;border:1px solid var(--gold-border);">Click to expand</span>
+        </div>
+        <span class="audit-chevron" id="audit-chevron">▼</span>
+      </div>
+
+      <div id="audit-log-wrapper">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 4px;flex-wrap:wrap;gap:10px;">
+          <p style="color:var(--muted);font-size:0.78rem;margin:0;">
+            Every change to your inventory is recorded here permanently. Use this to detect suspicious activity.
+          </p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="log-filter" onchange="loadAuditLog()" style="width:auto;font-size:0.82rem;padding:6px 10px;">
+              <option value="all">All Actions</option>
+              <option value="added">➕ Added</option>
+              <option value="edited">✏️ Edited</option>
+              <option value="deleted">🗑️ Deleted</option>
+              <option value="restored">↩️ Restored</option>
+              <option value="purged">❌ Purged</option>
+              <option value="imported">📥 Imported</option>
+              <option value="sold">💰 Sold</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="loadAuditLog()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="audit-log"><div style="padding:20px;text-align:center;color:var(--muted);font-size:0.85rem;">Loading…</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div id="main-footer"></div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal" style="max-width:680px;width:95%;">
+    <div class="modal-title">📥 Import Stock from File</div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+      Upload a CSV or Excel file. Items are <strong style="color:var(--white2);">added</strong> to your existing inventory — nothing is deleted or overwritten.
+      Items imported with Qty 0 or blank are treated as <strong style="color:var(--gold);">services / untracked goods</strong> — fully sellable, no alerts.
+    </p>
+
+    <div id="import-step-1">
+      <div class="import-drop-zone" id="drop-zone"
+        onclick="document.getElementById('file-input').click()"
+        ondragover="handleDragOver(event)"
+        ondragleave="handleDragLeave(event)"
+        ondrop="handleDrop(event)">
+        <div class="import-drop-icon">📂</div>
+        <div class="import-drop-text">
+          <strong>Click to browse</strong> or drag and drop your file here<br>
+          Supports: <strong>.csv</strong> · <strong>.xlsx</strong> · <strong>.xls</strong> · <strong>.txt</strong>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.txt" style="display:none;" onchange="handleFileSelect(event)">
+
+      <div style="text-align:center;margin-bottom:16px;">
+        <button class="btn btn-outline btn-sm" onclick="downloadTemplate()">📄 Download CSV Template</button>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:6px;">Not sure of the format? Download our template.</div>
+      </div>
+
+      <div class="security-note">
+        <strong>📋 Expected Columns (any order):</strong><br>
+        <code style="color:var(--gold);">Item Name</code> ·
+        <code style="color:var(--gold);">Quantity</code> ·
+        <code style="color:var(--gold);">Unit Price</code> ·
+        <code style="color:var(--gold);">Low Stock Threshold</code><br><br>
+        Column names are flexible. Missing Quantity = 0 (untracked/service — no alerts, fully sellable).
+        Missing Price = 0. Missing Threshold = 5.
+      </div>
+      <div id="import-parse-msg"></div>
+    </div>
+
+    <div id="import-step-2" style="display:none;">
+      <div id="import-stats-row" class="import-stats"></div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;">
+          🟢 Ready &nbsp;|&nbsp; 🟡 No price (will import, qty 0 = untracked) &nbsp;|&nbsp; 🔴 Skipped (no name)
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="import-preview-table" id="import-preview-table">
+            <thead><tr><th>#</th><th>Item Name</th><th>Quantity</th><th>Unit Price</th><th>Threshold</th><th>Status</th></tr></thead>
+            <tbody id="import-preview-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="import-confirm-msg"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+        <button class="btn btn-gold" id="confirm-import-btn" onclick="confirmImport()">✅ Import Items →</button>
+        <button class="btn btn-outline" onclick="resetImport()">← Different File</button>
+        <button class="btn btn-outline" onclick="closeImportModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PDF Preview Overlay -->
+<div id="pdf-area">
+  <button class="pdf-close-btn no-print" onclick="closePDF()">✕ Close</button>
+  <div class="pdf-header">
+    <div>
+      <div class="pdf-biz" id="pdf-biz-name">Business Name</div>
+      <div class="pdf-sub">GrowthIve Monitor — Inventory Report</div>
+    </div>
+    <div class="pdf-meta">
+      <div id="pdf-date-line"></div>
+      <div id="pdf-printed-on"></div>
+    </div>
+  </div>
+  <div class="pdf-summary" id="pdf-summary"></div>
+  <table>
+    <thead><tr><th>#</th><th>Item Name</th><th>Qty</th><th>Unit Price</th><th>Stock Value</th><th>Status</th></tr></thead>
+    <tbody id="pdf-tbody"></tbody>
+  </table>
+  <div class="pdf-footer">Generated from GrowthIve Monitor &nbsp;|&nbsp; <span id="pdf-footer-date"></span></div>
+</div>
+
+<!-- DELETE Confirmation Modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-title" style="color:var(--danger);">🗑️ Confirm Stock Deletion</div>
+    <div class="delete-warning-box">
+      <strong style="color:var(--danger);">⚠️ You are about to delete:</strong><br>
+      <span id="delete-item-name" style="color:var(--white);font-weight:600;font-size:1rem;"></span><br><br>
+      This action will be <strong>permanently logged</strong>. The item is recoverable for <strong>30 days</strong>.
+    </div>
+    <div class="form-group">
+      <label style="color:var(--danger);font-weight:600;">Type <strong>DELETE</strong> to confirm:</label>
+      <input type="text" id="delete-confirm-input" class="delete-confirm-input"
+        placeholder="Type DELETE here…" oninput="checkDeleteConfirm()"
+        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    </div>
+    <div id="delete-msg"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-danger" id="confirm-delete-btn" onclick="confirmDelete()" disabled style="opacity:0.4;cursor:not-allowed;">🗑️ Yes, Delete Item</button>
+      <button class="btn btn-outline" onclick="closeDeleteModal()">Cancel</button>
+    </div>
+    <input type="hidden" id="delete-pending-id">
+    <input type="hidden" id="delete-pending-name">
+    <input type="hidden" id="delete-pending-qty">
+    <input type="hidden" id="delete-pending-price">
+  </div>
+</div>
+
+<!-- Security Modal -->
+<div class="modal-overlay" id="security-modal">
+  <div class="modal">
+    <div class="modal-title">🔒 Secure Verification Required</div>
+    <div class="security-note">
+      Editing requires your personal email approval.<br><br>
+      Click <strong>"Send Verification Link"</strong> — you'll receive an email with subject:<br>
+      <strong style="color:var(--white2);">"GrowthIve Monitor — Secure Verification Required"</strong>
+    </div>
+    <div class="verify-steps">
+      <span><span class="step-num">①</span> Click "Send Verification Link" below</span>
+      <span><span class="step-num">②</span> Check your registered email inbox</span>
+      <span><span class="step-num">③</span> Click the gold button in the email</span>
+      <span><span class="step-num">④</span> You'll return here to complete the edit</span>
+    </div>
+    <div id="security-msg"></div>
+    <input type="hidden" id="pending-edit-id">
+    <input type="hidden" id="pending-edit-name">
+    <input type="hidden" id="pending-edit-qty">
+    <input type="hidden" id="pending-edit-price">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-gold" onclick="sendVerification()">📧 Send Verification Link</button>
+      <button class="btn btn-outline" onclick="closeSecurityModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title">✏️ Update Stock Item</div>
+    <div class="alert alert-success" style="margin-bottom:16px;">✅ Identity verified. You may now edit this item.</div>
+    <input type="hidden" id="edit-id">
+    <input type="hidden" id="edit-old-qty">
+    <input type="hidden" id="edit-old-price">
+    <div class="form-group">
+      <label>Item</label>
+      <input type="text" id="edit-name" disabled style="opacity:0.6;">
+    </div>
+    <div class="form-group">
+      <label>New Quantity <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">(set to 0 to make untracked)</span></label>
+      <input type="number" id="edit-qty" min="-9999">
+    </div>
+    <div class="form-group">
+      <label>New Unit Price</label>
+      <input type="number" id="edit-price" min="0" step="0.01" oninput="showProfitHint('edit')">
+    </div>
+    <div class="form-group">
+      <label>I bought it for <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">(optional)</span></label>
+      <input type="number" id="edit-cost" min="0" step="0.01" placeholder="0.00" oninput="showProfitHint('edit')">
+      <div id="edit-profit-hint" style="font-size:0.8rem;margin-top:6px;min-height:18px;"></div>
+    </div>
+    <div class="form-group">
+      <label>Supplier <span style="color:var(--muted);font-weight:400;font-size:0.78rem;">(optional)</span></label>
+      <input type="text" id="edit-supplier" maxlength="80" placeholder="Who you buy it from">
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-gold" onclick="updateItem()">Update Stock →</button>
+      <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/lang.js"></script>
+<script src="js/app.js"></script>
+<script src="js/biztype.js"></script>
+<script>
+let currentUser;
+let allItems      = [];
+let deletedItems  = [];
+let editUnlocked  = false;
+let showingDeleted= false;
+let importRows    = [];
+let auditLogLoaded= false;
+let auditLogOpen  = false;
+
+(async () => {
+  currentUser = await requireAuth();
+  if (!currentUser) return;
+  await initPage('inventory');
+
+  const hash = window.location.hash;
+  if (hash.includes('access_token') || localStorage.getItem('inv_edit_unlocked') === 'true') {
+    editUnlocked = true;
+    localStorage.removeItem('inv_edit_unlocked');
+    const pid = localStorage.getItem('pending_edit_id');
+    if (pid) {
+      const pname  = localStorage.getItem('pending_edit_name');
+      const pqty   = localStorage.getItem('pending_edit_qty');
+      const pprice = localStorage.getItem('pending_edit_price');
+      ['pending_edit_id','pending_edit_name','pending_edit_qty','pending_edit_price']
+        .forEach(k => localStorage.removeItem(k));
+      openEditModal(pid, pname, pqty, pprice);
+    }
+  }
+
+  loadInventory();
+})();
+
+/* ══════════════════════════════════════════
+   STOCK STATUS HELPERS
+   
+   Rules:
+   - qty === 0  → "untracked" (service / uncount stock). No alert. Fully sellable.
+   - qty < 0    → "negative" (sold more than stocked). Show muted negative number.
+   - qty > 0 && qty <= threshold → "low stock". Alert fires.
+   - qty > threshold → OK.
+══════════════════════════════════════════ */
+function stockStatus(item) {
+  const qty = Number(item.quantity);
+  if (qty === 0) return 'untracked';
+  if (qty < 0)  return 'negative';
+  if (qty <= Number(item.low_stock_threshold || 5)) return 'low';
+  return 'ok';
+}
+
+/* ══════════════════════════════════════════
+   AUDIT LOG TOGGLE
+══════════════════════════════════════════ */
+function toggleAuditLog() {
+  auditLogOpen = !auditLogOpen;
+  const wrapper = document.getElementById('audit-log-wrapper');
+  const chevron = document.getElementById('audit-chevron');
+  const hint    = document.querySelector('#audit-toggle-bar span');
+
+  wrapper.style.display = auditLogOpen ? 'block' : 'none';
+  chevron.classList.toggle('open', auditLogOpen);
+  if (hint) hint.textContent = auditLogOpen ? 'Click to collapse' : 'Click to expand';
+
+  if (auditLogOpen && !auditLogLoaded) {
+    auditLogLoaded = true;
+    loadAuditLog();
+  }
+}
+
+/* ══════════════════════════════════════════
+   LOAD INVENTORY
+══════════════════════════════════════════ */
+async function loadInventory() {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [{ data: active }, { data: deleted }] = await Promise.all([
+    _supabase.from('inventory').select('*').eq('user_id', currentUser.id)
+      .is('deleted_at', null).order('item_name'),
+    _supabase.from('inventory').select('*').eq('user_id', currentUser.id)
+      .not('deleted_at', 'is', null)
+      .gte('deleted_at', thirtyDaysAgo.toISOString())
+      .order('deleted_at', { ascending: false })
+  ]);
+
+  allItems     = active  || [];
+  deletedItems = deleted || [];
+
+  // Only qty > 0 AND below threshold = low stock
+  const lowItems       = allItems.filter(i => stockStatus(i) === 'low');
+  const untrackedItems = allItems.filter(i => stockStatus(i) === 'untracked' || stockStatus(i) === 'negative');
+
+  document.getElementById('total-items').textContent     = allItems.length;
+  document.getElementById('low-count').textContent       = lowItems.length;
+  document.getElementById('unstocked-count').textContent = untrackedItems.length;
+  document.getElementById('deleted-count').textContent   = deletedItems.length;
+
+  // Only count value for items with positive qty
+  const totalVal = allItems.reduce((s,i) => {
+    const qty = Number(i.quantity);
+    return s + (qty > 0 ? qty * Number(i.unit_price || 0) : 0);
+  }, 0);
+  document.getElementById('total-value').textContent = formatCurrency(totalVal);
+  // Only for items that have a cost price. Hidden if none do, so nothing changes for existing users.
+  const withCost = allItems.filter(i => Number(i.cost_price) > 0 && Number(i.quantity) > 0);
+  const costBox = document.getElementById('cost-cards');
+  if (costBox) {
+    costBox.style.display = withCost.length ? 'flex' : 'none';
+    document.getElementById('total-cost').textContent = formatCurrency(withCost.reduce((s, i) => s + Number(i.quantity) * Number(i.cost_price), 0));
+    document.getElementById('expected-profit').textContent = formatCurrency(withCost.reduce((s, i) => s + Number(i.quantity) * (Number(i.unit_price || 0) - Number(i.cost_price)), 0));
+  }
+
+  // Banner only for genuinely low items
+  const banner = document.getElementById('low-stock-banner');
+  if (lowItems.length > 0) {
+    banner.innerHTML = `<div class="alert alert-danger" style="margin-bottom:20px;">⚠️ <strong>${lowItems.length} item(s) running low:</strong> ${lowItems.map(i=>i.item_name).join(', ')} &nbsp;<a href="buy-list.html" style="color:var(--gold);font-weight:600;white-space:nowrap;">Make a buy list →</a></div>`;
+  } else {
+    banner.innerHTML = '';
+  }
+
+  renderList(showingDeleted ? deletedItems : allItems);
+}
+
+function toggleDeleted() {
+  showingDeleted = !showingDeleted;
+  const btn = document.getElementById('deleted-toggle');
+  btn.textContent       = showingDeleted ? '📦 Active' : '🗑️ Deleted';
+  btn.style.borderColor = showingDeleted ? 'var(--danger)' : '';
+  btn.style.color       = showingDeleted ? 'var(--danger)' : '';
+  renderList(showingDeleted ? deletedItems : allItems);
+}
+
+function filterList() {
+  const q    = document.getElementById('search-inv').value.toLowerCase();
+  const list = showingDeleted ? deletedItems : allItems;
+  renderList(list.filter(i => i.item_name.toLowerCase().includes(q)));
+}
+
+function renderList(items) {
+  const el = document.getElementById('inv-list');
+  if (!items || items.length === 0) {
+    el.innerHTML = showingDeleted
+      ? '<div class="empty-state"><div class="icon">🗑️</div><p>No recently deleted items.</p></div>'
+      : '<div class="empty-state"><p>No stock items yet. Add your first item above or import from a file.</p></div>';
+    return;
+  }
+
+  const banner = showingDeleted
+    ? `<div class="deleted-banner"><span>🗑️ Showing <strong>${items.length}</strong> deleted item(s) — restorable within 30 days.</span></div>` : '';
+
+  el.innerHTML = banner + `<div class="inv-list">${items.map((r, idx) => {
+    const status    = stockStatus(r);
+    const isDeleted = r.deleted_at !== null;
+    const qty       = Number(r.quantity);
+
+    let restoreInfo = '';
+    if (isDeleted) {
+      const daysLeft = 30 - Math.floor((Date.now() - new Date(r.deleted_at)) / (1000*60*60*24));
+      restoreInfo = `<span style="font-size:0.72rem;color:var(--danger);margin-left:6px;">${daysLeft}d left</span>`;
+    }
+
+    // Badge logic
+    let badge = '';
+    if (!isDeleted) {
+      if (status === 'low')       badge = '<span class="badge badge-danger" style="margin-left:8px;font-size:0.68rem;">Low</span>';
+      if (status === 'untracked') badge = '<span class="badge" style="margin-left:8px;font-size:0.68rem;background:rgba(255,255,255,0.07);color:var(--muted);border:1px solid var(--dark4);">Untracked</span>';
+      if (status === 'negative')  badge = '<span class="badge" style="margin-left:8px;font-size:0.68rem;background:rgba(91,155,213,0.12);color:var(--info);border:1px solid rgba(91,155,213,0.3);">−Sold</span>';
+    }
+    if (isDeleted) badge = '<span class="badge badge-danger" style="margin-left:8px;font-size:0.68rem;">Deleted</span>';
+
+    // Qty colour
+    const qtyColor = status === 'low'       ? 'var(--danger)'
+                   : status === 'negative'   ? 'var(--muted)'
+                   : status === 'untracked'  ? 'var(--muted)'
+                   : 'var(--white)';
+
+    const actions = isDeleted
+      ? `<button class="btn btn-outline btn-sm" style="color:var(--success);border-color:var(--success);"
+            onclick="restoreItem('${r.id}','${r.item_name.replace(/'/g,"\\'")}',${qty},${r.unit_price||0})">↩️ Restore</button>
+         <button class="btn btn-danger btn-sm"
+            onclick="permanentDelete('${r.id}','${r.item_name.replace(/'/g,"\\'")}',${qty},${r.unit_price||0})">Purge</button>`
+      : `${typeof supplyButtons === 'function' ? supplyButtons(r) : ''}<button class="btn btn-outline btn-sm"
+            onclick="requestEdit('${r.id}','${r.item_name.replace(/'/g,"\\'")}',${qty},${r.unit_price||0})">Edit</button>
+         <button class="btn btn-danger btn-sm"
+            onclick="openDeleteModal('${r.id}','${r.item_name.replace(/'/g,"\\'")}',${qty},${r.unit_price||0})">✕ Delete</button>`;
+
+    return `<div class="inv-item${isDeleted?' deleted-item':''}">
+      <div class="inv-num">${idx+1}</div>
+      <div class="inv-name">${r.item_name}${badge}${restoreInfo}${r.supplier ? `<div style="font-size:0.7rem;color:var(--muted);font-weight:400;">from ${String(r.supplier).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>` : ''}</div>
+      <div class="inv-qty" style="color:${qtyColor};">${qty}</div>
+      <div class="inv-price">${formatCurrency(r.unit_price)}${(!isDeleted && Number(r.cost_price) > 0 && Number(r.unit_price) > 0) ? `<div style="font-size:0.68rem;color:${Number(r.unit_price) >= Number(r.cost_price) ? 'var(--success)' : 'var(--danger)'};">${Number(r.unit_price) >= Number(r.cost_price) ? '+' : '−'}${formatCurrency(Math.abs(Number(r.unit_price) - Number(r.cost_price)))} each</div>` : ''}</div>
+      <div class="inv-value">${qty > 0 ? formatCurrency(qty * Number(r.unit_price||0)) : '—'}</div>
+      <div class="inv-actions">${actions}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* ══════════════════════════════════════════
+   AUDIT LOG
+══════════════════════════════════════════ */
+async function writeLog(action, itemId, itemName, oldQty, newQty, oldPrice, newPrice, note='') {
+  try {
+    await _supabase.from('inventory_logs').insert({
+      user_id: currentUser.id, action,
+      item_id: itemId || null, item_name: itemName || '',
+      old_quantity: oldQty ?? null, new_quantity: newQty ?? null,
+      old_price: oldPrice ?? null, new_price: newPrice ?? null, note
+    });
+  } catch(e) { console.warn('Audit log write failed:', e); }
+}
+
+async function loadAuditLog() {
+  const el     = document.getElementById('audit-log');
+  const filter = document.getElementById('log-filter').value;
+  el.innerHTML = '<div class="spinner"></div>';
+
+  let query = _supabase.from('inventory_logs').select('*')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false }).limit(100);
+  if (filter !== 'all') query = query.eq('action', filter);
+
+  const { data, error } = await query;
+  if (error || !data || data.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>No activity logged yet.</p></div>';
+    return;
+  }
+
+  const suspiciousItems = new Set();
+  const deletions = data.filter(l => l.action === 'deleted');
+  const additions = data.filter(l => l.action === 'added');
+  deletions.forEach(del => {
+    additions.forEach(add => {
+      if (
+        add.item_name?.toLowerCase() === del.item_name?.toLowerCase() &&
+        new Date(add.created_at) > new Date(del.created_at) &&
+        (new Date(add.created_at) - new Date(del.created_at)) < 24*60*60*1000 &&
+        Number(add.new_quantity) < Number(del.old_quantity)
+      ) {
+        suspiciousItems.add(del.item_name?.toLowerCase());
+        suspiciousItems.add(add.item_name?.toLowerCase());
+      }
+    });
+  });
+
+  const actionConfig = {
+    added:    { icon: '➕', cls: 'added',    label: 'Added'    },
+    edited:   { icon: '✏️', cls: 'edited',   label: 'Edited'   },
+    deleted:  { icon: '🗑️', cls: 'deleted',  label: 'Deleted'  },
+    restored: { icon: '↩️', cls: 'restored', label: 'Restored' },
+    purged:   { icon: '❌', cls: 'purged',   label: 'Purged'   },
+    imported: { icon: '📥', cls: 'added',    label: 'Imported' },
+    sold:     { icon: '💰', cls: 'edited',   label: 'Sold'     },
+    used:      { icon: '🧴', cls: 'edited',   label: 'Used'      },
+    restocked: { icon: '🛒', cls: 'added',    label: 'Restocked' },
+  };
+
+  el.innerHTML = `<div>${data.map(log => {
+    const cfg     = actionConfig[log.action] || { icon:'📝', cls:'edited', label: log.action };
+    const timeStr = new Date(log.created_at).toLocaleString('en-GB',{
+      day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'
+    });
+    const isSuspicious = suspiciousItems.has(log.item_name?.toLowerCase());
+
+    let detail = '';
+    if (log.action === 'added' || log.action === 'imported') {
+      detail = `Qty: <span style="color:var(--success);font-weight:600;">${log.new_quantity ?? 0}</span>` +
+        (log.new_price ? ` &nbsp;·&nbsp; Price: <span style="color:var(--gold);">${formatCurrency(log.new_price)}</span>` : '');
+    } else if (log.action === 'sold') {
+      detail = `Sold: <span style="color:var(--gold);font-weight:600;">${Math.abs(Number(log.old_quantity) - Number(log.new_quantity))} unit(s)</span>`
+        + ` &nbsp;·&nbsp; Qty: <span class="log-before">${log.old_quantity}</span><span class="log-arrow">→</span><span style="color:var(--muted);">${log.new_quantity}</span>`
+        + (log.note ? ` &nbsp;·&nbsp; Income: <span style="color:var(--success);">${log.note}</span>` : '');
+    } else if (log.action === 'edited') {
+      const parts = [];
+      if (log.old_quantity !== log.new_quantity) parts.push(
+        `Qty: <span class="log-before">${log.old_quantity}</span><span class="log-arrow">→</span><span class="log-after">${log.new_quantity}</span>`
+      );
+      if (log.old_price !== log.new_price) parts.push(
+        `Price: <span class="log-before">${formatCurrency(log.old_price)}</span><span class="log-arrow">→</span><span class="log-after">${formatCurrency(log.new_price)}</span>`
+      );
+      detail = `<div class="log-change">${parts.join(' &nbsp;|&nbsp; ')}</div>`;
+    } else if (log.action === 'deleted') {
+      detail = `Was: Qty <span style="color:var(--danger);">${log.old_quantity}</span>` +
+        (log.old_price ? ` &nbsp;·&nbsp; Value: <span style="color:var(--danger);">${formatCurrency(Number(log.old_quantity)*Number(log.old_price))}</span>` : '');
+    } else if (log.action === 'used' || log.action === 'restocked') {
+      detail = `Qty: <span class="log-before">${log.old_quantity}</span><span class="log-arrow">→</span><span class="log-after">${log.new_quantity}</span>` + (log.note ? ` &nbsp;·&nbsp; ${log.note}` : '');
+    } else if (log.action === 'restored') {
+      detail = `Qty: <span style="color:var(--success);">${log.new_quantity}</span> restored to active stock`;
+    } else if (log.action === 'purged') {
+      detail = `<span style="color:var(--danger);">Permanently removed from database</span>`;
+    }
+
+    return `<div class="log-row">
+      <div class="log-icon ${cfg.cls}">${cfg.icon}</div>
+      <div class="log-body">
+        <div class="log-title">
+          <strong>${log.item_name || '—'}</strong>
+          <span style="font-size:0.78rem;color:var(--muted);margin-left:6px;">${cfg.label}</span>
+          ${isSuspicious ? '<span class="suspicion-flag">⚠️ Suspicious</span>' : ''}
+        </div>
+        <div class="log-detail">${detail}</div>
+        ${log.note && log.action !== 'sold' ? `<div class="log-detail" style="margin-top:2px;font-style:italic;">Note: ${log.note}</div>` : ''}
+      </div>
+      <div class="log-time">${timeStr}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* Live profit hint under the price boxes */
+function showProfitHint(prefix) {
+  const price = parseFloat(document.getElementById(prefix === 'item' ? 'item-price' : 'edit-price').value);
+  const cost  = parseFloat(document.getElementById(prefix === 'item' ? 'item-cost' : 'edit-cost').value);
+  const el = document.getElementById(prefix + '-profit-hint');
+  if (!el) return;
+  if (isNaN(price) || isNaN(cost) || cost <= 0 || price <= 0) { el.innerHTML = ''; return; }
+  const p = price - cost, pct = Math.round(p / cost * 100);
+  el.innerHTML = p >= 0
+    ? `<span style="color:var(--success);">Profit: ${formatCurrency(p)} on each (${pct}%)</span>`
+    : `<span style="color:var(--danger);">You would lose ${formatCurrency(-p)} on each. Check your prices.</span>`;
+}
+
+/* ══════════════════════════════════════════
+   ADD ITEM
+══════════════════════════════════════════ */
+async function saveItem() {
+  const item_name           = document.getElementById('item-name').value.trim();
+  const qtyRaw              = document.getElementById('item-qty').value;
+  const quantity            = qtyRaw === '' ? 0 : parseInt(qtyRaw);
+  const unit_price          = parseFloat(document.getElementById('item-price').value) || 0;
+  const costRaw             = parseFloat(document.getElementById('item-cost').value);
+  const cost_price          = (isNaN(costRaw) || costRaw <= 0) ? null : costRaw;
+  const low_stock_threshold = parseInt(document.getElementById('item-threshold').value) || 5;
+  const msg = document.getElementById('form-msg');
+
+  if (!item_name) {
+    msg.innerHTML = '<div class="alert alert-danger">⚠️ Please enter an item name.</div>'; return;
+  }
+  msg.innerHTML = '<div class="alert alert-gold">Saving…</div>';
+
+  const newRow = { user_id: currentUser.id, item_name, quantity, unit_price, low_stock_threshold, deleted_at: null };
+  if (cost_price !== null) newRow.cost_price = cost_price;
+  const supplierVal = document.getElementById('item-supplier').value.trim();
+  if (supplierVal) newRow.supplier = supplierVal;
+  let { data: inserted, error } = await _supabase.from('inventory').insert(newRow).select().single();
+  let costNote = '';
+  if (error && /cost_price|supplier/i.test(error.message)) {   // SQL 22/23 not run yet: save without the optional boxes
+    delete newRow.cost_price; delete newRow.supplier;
+    ({ data: inserted, error } = await _supabase.from('inventory').insert(newRow).select().single());
+    costNote = ' (cost price / supplier not saved yet: run the SQL files 22 and 23 in Supabase)';
+  }
+
+  if (error) { msg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+  await writeLog('added', inserted?.id, item_name, null, quantity, null, unit_price);
+  msg.innerHTML = '<div class="alert alert-success">✅ Item added to stock list!' + costNote + '</div>';
+  ['item-name','item-qty','item-price','item-cost','item-supplier'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('item-profit-hint').innerHTML = '';
+  loadInventory();
+  if (auditLogOpen) loadAuditLog();
+  setTimeout(() => msg.innerHTML = '', 3000);
+}
+
+/* ══════════════════════════════════════════
+   DELETE FLOW
+══════════════════════════════════════════ */
+function openDeleteModal(id, name, qty, price) {
+  document.getElementById('delete-pending-id').value    = id;
+  document.getElementById('delete-pending-name').value  = name;
+  document.getElementById('delete-pending-qty').value   = qty;
+  document.getElementById('delete-pending-price').value = price;
+  document.getElementById('delete-item-name').textContent = name;
+  document.getElementById('delete-confirm-input').value   = '';
+  document.getElementById('delete-msg').innerHTML         = '';
+  const btn = document.getElementById('confirm-delete-btn');
+  btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'not-allowed';
+  document.getElementById('delete-modal').classList.add('show');
+  setTimeout(() => document.getElementById('delete-confirm-input').focus(), 300);
+}
+
+function checkDeleteConfirm() {
+  const val     = document.getElementById('delete-confirm-input').value.trim().toUpperCase();
+  const btn     = document.getElementById('confirm-delete-btn');
+  const isValid = val === 'DELETE';
+  btn.disabled      = !isValid;
+  btn.style.opacity = isValid ? '1' : '0.4';
+  btn.style.cursor  = isValid ? 'pointer' : 'not-allowed';
+  document.getElementById('delete-confirm-input').style.borderColor =
+    isValid ? 'var(--success)' : 'var(--danger)';
+}
+
+async function confirmDelete() {
+  const id    = document.getElementById('delete-pending-id').value;
+  const name  = document.getElementById('delete-pending-name').value;
+  const qty   = parseFloat(document.getElementById('delete-pending-qty').value);
+  const price = parseFloat(document.getElementById('delete-pending-price').value);
+  const msg   = document.getElementById('delete-msg');
+  msg.innerHTML = '<div class="alert alert-gold">Processing…</div>';
+  const { error } = await _supabase.from('inventory')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id).eq('user_id', currentUser.id);
+  if (error) { msg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+  await writeLog('deleted', id, name, qty, null, price, null);
+  closeDeleteModal(); loadInventory();
+  if (auditLogOpen) loadAuditLog();
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.remove('show');
+  document.getElementById('delete-confirm-input').value = '';
+  document.getElementById('delete-msg').innerHTML       = '';
+}
+
+async function restoreItem(id, name, qty, price) {
+  if (!confirm(`Restore "${name}" back to active stock?`)) return;
+  await _supabase.from('inventory').update({ deleted_at: null }).eq('id', id).eq('user_id', currentUser.id);
+  await writeLog('restored', id, name, null, qty, null, price);
+  loadInventory();
+  if (auditLogOpen) loadAuditLog();
+}
+
+async function permanentDelete(id, name, qty, price) {
+  const typed = prompt(`⚠️ PERMANENT DELETE\n\nThis will remove "${name}" forever.\n\nType DELETE to confirm:`);
+  if (typed?.trim().toUpperCase() !== 'DELETE') { alert('Cancelled.'); return; }
+  await writeLog('purged', id, name, qty, null, price, null);
+  await _supabase.from('inventory').delete().eq('id', id).eq('user_id', currentUser.id);
+  loadInventory();
+  if (auditLogOpen) loadAuditLog();
+}
+
+/* ══════════════════════════════════════════
+   EDIT FLOW
+══════════════════════════════════════════ */
+function requestEdit(id, name, qty, price) {
+  if (editUnlocked) { openEditModal(id, name, qty, price); return; }
+  document.getElementById('pending-edit-id').value    = id;
+  document.getElementById('pending-edit-name').value  = name;
+  document.getElementById('pending-edit-qty').value   = qty;
+  document.getElementById('pending-edit-price').value = price;
+  document.getElementById('security-msg').innerHTML   = '';
+  document.getElementById('security-modal').classList.add('show');
+}
+
+async function sendVerification() {
+  const msg   = document.getElementById('security-msg');
+  const id    = document.getElementById('pending-edit-id').value;
+  const name  = document.getElementById('pending-edit-name').value;
+  const qty   = document.getElementById('pending-edit-qty').value;
+  const price = document.getElementById('pending-edit-price').value;
+  msg.innerHTML = '<div class="alert alert-gold">⏳ Sending verification email…</div>';
+  localStorage.setItem('pending_edit_id',   id);
+  localStorage.setItem('pending_edit_name', name);
+  localStorage.setItem('pending_edit_qty',  qty);
+  localStorage.setItem('pending_edit_price',price);
+  localStorage.setItem('inv_edit_unlocked', 'true');
+  const { error } = await _supabase.auth.resetPasswordForEmail(currentUser.email, {
+    redirectTo: 'https://growthivesystems.github.io/monitor/inventory.html'
+  });
+  if (error) { msg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+  msg.innerHTML = `<div class="alert alert-success">✅ Verification email sent! Check your inbox.</div>`;
+}
+
+function closeSecurityModal() {
+  document.getElementById('security-modal').classList.remove('show');
+  ['pending_edit_id','pending_edit_name','pending_edit_qty','pending_edit_price','inv_edit_unlocked']
+    .forEach(k => localStorage.removeItem(k));
+}
+
+function openEditModal(id, name, qty, price) {
+  document.getElementById('edit-id').value        = id;
+  document.getElementById('edit-name').value      = name;
+  document.getElementById('edit-qty').value       = qty;
+  document.getElementById('edit-price').value     = price;
+  document.getElementById('edit-old-qty').value   = qty;
+  document.getElementById('edit-old-price').value = price;
+  const cur = (allItems || []).find(i => i.id === id);
+  document.getElementById('edit-cost').value = cur && cur.cost_price ? cur.cost_price : '';
+  document.getElementById('edit-supplier').value = cur && cur.supplier ? cur.supplier : '';
+  showProfitHint('edit');
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('show');
+  editUnlocked = false;
+}
+
+async function updateItem() {
+  const id         = document.getElementById('edit-id').value;
+  const name       = document.getElementById('edit-name').value;
+  const oldQty     = parseFloat(document.getElementById('edit-old-qty').value);
+  const oldPrice   = parseFloat(document.getElementById('edit-old-price').value);
+  const quantity   = parseInt(document.getElementById('edit-qty').value) || 0;
+  const unit_price = parseFloat(document.getElementById('edit-price').value) || 0;
+  const editCostRaw = parseFloat(document.getElementById('edit-cost').value);
+  const upd = { quantity, unit_price, cost_price: (isNaN(editCostRaw) || editCostRaw <= 0) ? null : editCostRaw,
+                supplier: document.getElementById('edit-supplier').value.trim() || null };
+  let { error: updErr } = await _supabase.from('inventory').update(upd).eq('id', id);
+  if (updErr && /cost_price|supplier/i.test(updErr.message)) {   // SQL 22/23 not run yet
+    delete upd.cost_price; delete upd.supplier;
+    await _supabase.from('inventory').update(upd).eq('id', id);
+    alert('Saved, but the cost price / supplier were not stored yet. Run the SQL files 22 and 23 in Supabase.');
+  }
+  await writeLog('edited', id, name, oldQty, quantity, oldPrice, unit_price);
+  closeEditModal(); loadInventory();
+  if (auditLogOpen) loadAuditLog();
+}
+
+/* ══════════════════════════════════════════
+   IMPORT MODAL
+══════════════════════════════════════════ */
+function openImportModal() {
+  resetImport();
+  document.getElementById('import-modal').classList.add('show');
+}
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('show');
+  resetImport();
+}
+function resetImport() {
+  importRows = [];
+  document.getElementById('import-step-1').style.display = 'block';
+  document.getElementById('import-step-2').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  document.getElementById('import-parse-msg').innerHTML = '';
+  document.getElementById('import-preview-body').innerHTML = '';
+  document.getElementById('import-stats-row').innerHTML = '';
+  document.getElementById('import-confirm-msg').innerHTML = '';
+}
+
+function handleDragOver(e)  { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+function handleDragLeave(e) { document.getElementById('drop-zone').classList.remove('drag-over'); }
+function handleDrop(e) {
+  e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0]; if (file) processFile(file);
+}
+function handleFileSelect(e) { const file = e.target.files[0]; if (file) processFile(file); }
+
+function processFile(file) {
+  const msg = document.getElementById('import-parse-msg');
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['csv','txt','xlsx','xls'].includes(ext)) {
+    msg.innerHTML = '<div class="alert alert-danger">⚠️ Unsupported file type. Please upload a CSV or Excel file.</div>'; return;
+  }
+  msg.innerHTML = '<div class="alert alert-gold">⏳ Reading file…</div>';
+  const reader  = new FileReader();
+  reader.onload = function(e) {
+    try {
+      if (ext === 'csv' || ext === 'txt') {
+        const rows = parseCSV(e.target.result);
+        if (rows.length === 0) { msg.innerHTML = '<div class="alert alert-danger">⚠️ No data found in file.</div>'; return; }
+        msg.innerHTML = ''; buildPreview(rows);
+      } else {
+        msg.innerHTML = '<div class="alert alert-danger">⚠️ For Excel files, please save as CSV first (File → Save As → CSV) and re-upload.</div>';
+      }
+    } catch(err) { msg.innerHTML = `<div class="alert alert-danger">⚠️ Could not read file: ${err.message}</div>`; }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  const lines   = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = splitCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/[^a-z0-9 ]/g,''));
+  const costIdx = headers.findIndex(h => /^(cost price|buying price|buy price|bought for|purchase price|i bought it for)$/.test(h));
+  const priceHeaders = headers.map((h, i) => i === costIdx ? '#' : h);   // keep "cost price" out of the selling-price match
+  const colMap  = {
+    cost_price: costIdx,
+    supplier:   headers.findIndex(h => h === 'supplier' || h === 'bought from' || h === 'vendor'),
+    item_name:           findCol(headers, ['item name','name','product','description','item','stock name','product name','article']),
+    quantity:            findCol(headers, ['quantity','qty','stock','units','amount','count','on hand','stock qty']),
+    unit_price:          findCol(priceHeaders, ['unit price','price','cost','unit cost','selling price','value','rate','each']),
+    low_stock_threshold: findCol(headers, ['low stock threshold','threshold','min stock','minimum','reorder level','alert level']),
+  };
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols   = splitCSVLine(lines[i]);
+    const name   = colMap.item_name !== -1 ? (cols[colMap.item_name] || '').trim() : '';
+    const qty    = colMap.quantity   !== -1 ? parseFloat(cols[colMap.quantity]  || '0') : 0;
+    const price  = colMap.unit_price !== -1 ? parseFloat(cols[colMap.unit_price] || '0') : 0;
+    const cost   = colMap.cost_price !== -1 ? parseFloat(cols[colMap.cost_price] || '') : NaN;
+    const supp   = colMap.supplier !== -1 ? (cols[colMap.supplier] || '').trim().replace(/^"|"$/g,'') : '';
+    const thresh = colMap.low_stock_threshold !== -1 ? parseInt(cols[colMap.low_stock_threshold] || '5') : 5;
+    rows.push({
+      item_name:           name.replace(/^"|"$/g,''),
+      quantity:            isNaN(qty)    ? 0 : Math.max(0, qty),
+      unit_price:          isNaN(price)  ? 0 : Math.max(0, price),
+      cost_price:          (isNaN(cost) || cost <= 0) ? null : cost,
+      supplier:            supp || null,
+      low_stock_threshold: isNaN(thresh) ? 5 : Math.max(1, thresh),
+      _status: name ? (price > 0 ? 'valid' : 'warning') : 'error'
+    });
+  }
+  return rows;
+}
+
+function findCol(headers, aliases) {
+  for (const alias of aliases) {
+    const idx = headers.findIndex(h => h.includes(alias) || alias.includes(h));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+function splitCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur); return result;
+}
+
+function buildPreview(rows) {
+  importRows    = rows.filter(r => r._status !== 'error');
+  const valid   = rows.filter(r => r._status === 'valid').length;
+  const warning = rows.filter(r => r._status === 'warning').length;
+  const skipped = rows.filter(r => r._status === 'error').length;
+
+  document.getElementById('import-stats-row').innerHTML = `
+    <div class="import-stat"><div class="import-stat-val" style="color:var(--success);">${valid+warning}</div><div class="import-stat-label">Ready to Import</div></div>
+    <div class="import-stat"><div class="import-stat-val" style="color:var(--gold);">${warning}</div><div class="import-stat-label">Missing Price</div></div>
+    <div class="import-stat"><div class="import-stat-val" style="color:var(--danger);">${skipped}</div><div class="import-stat-label">Skipped (no name)</div></div>
+    <div class="import-stat"><div class="import-stat-val">${rows.length}</div><div class="import-stat-label">Total Rows</div></div>`;
+
+  document.getElementById('import-preview-body').innerHTML = rows.map((r, i) => {
+    const s = r._status === 'valid' ? '🟢 Ready' : r._status === 'warning' ? '🟡 No price' : '🔴 Skipped';
+    return `<tr class="import-row-${r._status}">
+      <td>${i+1}</td>
+      <td>${r.item_name || '<em style="color:var(--danger)">No name</em>'}</td>
+      <td>${r.quantity > 0 ? r.quantity : '<span style="color:var(--muted);">0 (untracked)</span>'}</td>
+      <td>${r.unit_price > 0 ? formatCurrency(r.unit_price) : '—'}</td>
+      <td>${r.low_stock_threshold}</td>
+      <td>${s}</td></tr>`;
+  }).join('');
+
+  document.getElementById('import-step-1').style.display = 'none';
+  document.getElementById('import-step-2').style.display = 'block';
+  if (importRows.length === 0) {
+    document.getElementById('confirm-import-btn').disabled = true;
+    document.getElementById('import-confirm-msg').innerHTML = '<div class="alert alert-danger">⚠️ No valid rows to import.</div>';
+  }
+}
+
+async function confirmImport() {
+  if (!importRows || importRows.length === 0) return;
+  const btn = document.getElementById('confirm-import-btn');
+  const msg = document.getElementById('import-confirm-msg');
+  btn.disabled = true; btn.textContent = `⏳ Importing ${importRows.length} items…`;
+  msg.innerHTML = '<div class="alert alert-gold">⏳ Saving to inventory…</div>';
+
+  let successCount = 0, failCount = 0;
+  const batchSize  = 20;
+  for (let i = 0; i < importRows.length; i += batchSize) {
+    const batch = importRows.slice(i, i+batchSize).map(r => ({
+      user_id: currentUser.id, item_name: r.item_name,
+      quantity: r.quantity, unit_price: r.unit_price,
+      low_stock_threshold: r.low_stock_threshold, deleted_at: null,
+      ...(r.cost_price ? { cost_price: r.cost_price } : {}),
+      ...(r.supplier ? { supplier: r.supplier } : {})
+    }));
+    let { data: inserted, error } = await _supabase.from('inventory').insert(batch).select();
+    if (error && /cost_price|supplier/i.test(error.message)) {   // SQL 22/23 not run yet: import without them
+      batch.forEach(b => { delete b.cost_price; delete b.supplier; });
+      ({ data: inserted, error } = await _supabase.from('inventory').insert(batch).select());
+    }
+    if (error) { failCount += batch.length; }
+    else {
+      successCount += (inserted || batch).length;
+      for (const row of importRows.slice(i, i+batchSize)) {
+        await writeLog('imported', null, row.item_name, null, row.quantity, null, row.unit_price, 'Bulk import from file');
+      }
+    }
+  }
+
+  if (successCount > 0) {
+    msg.innerHTML = `<div class="alert alert-success">✅ Imported <strong>${successCount}</strong> item(s)!${failCount>0?`<br>⚠️ ${failCount} failed.`:''}</div>`;
+    loadInventory();
+    if (auditLogOpen) loadAuditLog();
+    setTimeout(() => closeImportModal(), 2500);
+  } else {
+    msg.innerHTML = '<div class="alert alert-danger">❌ Import failed. Please try again.</div>';
+    btn.disabled = false; btn.textContent = '✅ Import Items →';
+  }
+}
+
+function downloadTemplate() {
+  const template = ['Item Name,Quantity,Unit Price,Cost Price,Low Stock Threshold,Supplier','Rice (50kg bag),20,45000,41000,5,Mama Ngozi','Engine Oil (1L),10,8500,7200,3,Apo Market','Haircut Service,,5000,,,','BIAB Extension,,15000,,,'].join('\n');
+  const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'growthive-inventory-template.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ══════════════════════════════════════════
+   EXPORT CSV
+══════════════════════════════════════════ */
+function exportCSV() {
+  if (allItems.length === 0) { alert('No inventory items to export.'); return; }
+  const now     = new Date().toLocaleDateString('en-GB');
+  const headers = ['#','Item Name','Quantity','Unit Price','Cost Price','Profit Each','Stock Value','Low Stock Threshold','Status','Supplier'];
+  const rows    = allItems.map((item,idx) => {
+    const qty    = Number(item.quantity);
+    const status = stockStatus(item);
+    const label  = status === 'untracked' ? 'Untracked/Service'
+                 : status === 'negative'  ? 'Negative (sold untracked)'
+                 : status === 'low'       ? 'Low Stock' : 'OK';
+    const value  = qty > 0 ? qty * Number(item.unit_price||0) : 0;
+    return [idx+1,`"${item.item_name.replace(/"/g,'""')}"`,qty,
+      Number(item.unit_price||0).toFixed(2),
+      Number(item.cost_price) > 0 ? Number(item.cost_price).toFixed(2) : '',
+      Number(item.cost_price) > 0 ? (Number(item.unit_price||0) - Number(item.cost_price)).toFixed(2) : '',
+      value.toFixed(2),item.low_stock_threshold||5,label,`"${String(item.supplier||'').replace(/"/g,'""')}"`].join(',');
+  });
+  const totalVal = allItems.reduce((s,i)=>{const q=Number(i.quantity);return s+(q>0?q*Number(i.unit_price||0):0);},0);
+  const lowCount = allItems.filter(i=>stockStatus(i)==='low').length;
+  const csv = [
+    `"GrowthIve Monitor — Inventory Report"`,`"Generated: ${now}"`,``,
+    headers.join(','),...rows,``,
+    `"TOTALS","${allItems.length} items","—","","${totalVal.toFixed(2)}","","${lowCount} low stock"`
+  ].join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `growthive-inventory-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ══════════════════════════════════════════
+   EXPORT PDF
+══════════════════════════════════════════ */
+function exportXLSX() {
+  if (allItems.length === 0) { alert('No inventory items to export.'); return; }
+  if (typeof XLSX === 'undefined') { alert('The Excel tool could not load (check your internet). Use the CSV button, it opens in Excel too.'); return; }
+  const rows = allItems.map((item, idx) => {
+    const qty = Number(item.quantity), price = Number(item.unit_price || 0), cost = Number(item.cost_price || 0);
+    const st = stockStatus(item);
+    return {
+      '#': idx + 1, 'Item': item.item_name, 'Quantity': qty, 'Selling price': price,
+      'Cost price': cost > 0 ? cost : '', 'Profit each': cost > 0 ? price - cost : '',
+      'Stock value (selling)': qty > 0 ? qty * price : 0,
+      'Supplier': item.supplier || '', 'Low-stock alert at': item.low_stock_threshold || 5,
+      'Status': st === 'untracked' ? 'Untracked / service' : st === 'negative' ? 'Negative' : st === 'low' ? 'Low stock' : 'OK'
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:4},{wch:30},{wch:10},{wch:14},{wch:12},{wch:12},{wch:20},{wch:20},{wch:16},{wch:18}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+  XLSX.writeFile(wb, 'growthive-inventory-' + new Date().toLocaleDateString('en-CA') + '.xlsx');
+}
+
+async function exportPDF() {
+  if (allItems.length === 0) { alert('No inventory items to export.'); return; }
+  let bizName = 'My Business';
+  try {
+    const { data: profile } = await _supabase.from('profiles').select('business_name').eq('id', currentUser.id).maybeSingle();
+    if (profile?.business_name) bizName = profile.business_name;
+  } catch(e) {}
+
+  const now          = new Date();
+  const dateStr      = now.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const timeStr      = now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const totalVal     = allItems.reduce((s,i)=>{const q=Number(i.quantity);return s+(q>0?q*Number(i.unit_price||0):0);},0);
+  const lowCount     = allItems.filter(i=>stockStatus(i)==='low').length;
+  const untrkCount   = allItems.filter(i=>stockStatus(i)==='untracked'||stockStatus(i)==='negative').length;
+
+  document.getElementById('pdf-biz-name').textContent  = bizName;
+  document.getElementById('pdf-date-line').textContent  = `Report Date: ${dateStr}`;
+  document.getElementById('pdf-printed-on').textContent = `Generated: ${timeStr}`;
+  document.getElementById('pdf-footer-date').textContent= dateStr;
+
+  document.getElementById('pdf-summary').innerHTML = `
+    <div class="pdf-sum-item"><div class="pdf-sum-label">Total Items</div><div class="pdf-sum-val">${allItems.length}</div></div>
+    <div class="pdf-sum-item"><div class="pdf-sum-label">Stock Value</div><div class="pdf-sum-val">${formatCurrency(totalVal)}</div></div>
+    <div class="pdf-sum-item"><div class="pdf-sum-label">Low Stock</div><div class="pdf-sum-val" style="color:${lowCount>0?'#cc0000':'#1a7a1a'};">${lowCount}</div></div>
+    <div class="pdf-sum-item"><div class="pdf-sum-label">Untracked/Services</div><div class="pdf-sum-val" style="color:#888;">${untrkCount}</div></div>`;
+
+  document.getElementById('pdf-tbody').innerHTML = allItems.map((item,idx) => {
+    const qty    = Number(item.quantity);
+    const status = stockStatus(item);
+    const value  = qty > 0 ? qty * Number(item.unit_price||0) : 0;
+    const statusHtml =
+      status === 'untracked' ? '<span class="pdf-status-unstocked">— Service/Untracked</span>'
+      : status === 'negative' ? `<span class="pdf-status-negative">⬇ ${qty} (sold untracked)</span>`
+      : status === 'low'      ? '<span class="pdf-status-low">⚠ Low Stock</span>'
+      : '<span class="pdf-status-ok">✓ OK</span>';
+    const qtyColor = status==='low' ? '#cc0000' : (status==='negative'||status==='untracked') ? '#888' : '#111';
+    return `<tr><td>${idx+1}</td><td><strong>${item.item_name}</strong></td>
+      <td style="text-align:center;font-weight:700;color:${qtyColor};">${qty}</td>
+      <td>${formatCurrency(item.unit_price||0)}</td>
+      <td>${qty > 0 ? formatCurrency(value) : '—'}</td>
+      <td>${statusHtml}</td></tr>`;
+  }).join('');
+
+  document.getElementById('pdf-area').style.display = 'block';
+  setTimeout(() => window.print(), 400);
+}
+
+function closePDF() { document.getElementById('pdf-area').style.display = 'none'; }
+</script>
+</body>
+</html>

@@ -1,0 +1,732 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/monitor/manifest.json">
+<meta name="theme-color" content="#C9A84C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GrowthIve">
+<link rel="apple-touch-icon" href="/monitor/icons/icon-192.png">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/monitor/sw.js');}</script>
+<title>Settings — GrowthIve Monitor</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .settings-section { margin-bottom: 28px; }
+  .settings-section-title {
+    font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--gold-border);
+  }
+  .settings-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid rgba(201,168,76,0.07);
+    gap: 16px; flex-wrap: wrap;
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 0.9rem; color: var(--white2); font-weight: 500; }
+  .settings-row-desc { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+  .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+  .toggle { position: relative; width: 44px; height: 24px; cursor: pointer; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0; background: var(--dark4);
+    border-radius: 24px; transition: var(--transition);
+  }
+  .toggle-slider:before {
+    content: ''; position: absolute; width: 18px; height: 18px;
+    left: 3px; bottom: 3px; background: var(--muted); border-radius: 50%;
+    transition: var(--transition);
+  }
+  .toggle input:checked + .toggle-slider { background: var(--gold); }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(20px); background: var(--dark); }
+  .danger-zone {
+    border: 1px solid rgba(224,85,85,0.25); border-radius: var(--radius);
+    padding: 20px; background: rgba(224,85,85,0.04);
+  }
+  .avatar-wrap { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .avatar-circle {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--dark3); border: 2px solid var(--gold-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; color: var(--gold); font-weight: 700;
+    flex-shrink: 0; overflow: hidden;
+  }
+  .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+  .pw-wrap { position: relative; }
+  .pw-toggle {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1rem; padding: 0;
+  }
+  .pw-wrap input { padding-right: 40px; }
+  .tab-bar { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stab {
+    padding: 8px 18px; border-radius: 20px; cursor: pointer;
+    font-size: 0.84rem; font-weight: 500; border: 1px solid var(--gold-border);
+    background: transparent; color: var(--muted); transition: var(--transition);
+    font-family: var(--font-body);
+  }
+  .stab.active { background: var(--gold); color: var(--dark); border-color: var(--gold); font-weight: 600; }
+  .stab-panel { display: none; }
+  .stab-panel.active { display: block; }
+
+  /* ── Language picker in settings ── */
+  .lang-picker-settings {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .lang-opt-btn {
+    padding: 8px 16px; border-radius: 20px; cursor: pointer;
+    font-size: 0.82rem; font-weight: 500; border: 1px solid var(--gold-border);
+    background: transparent; color: var(--muted); transition: all 0.2s;
+    font-family: var(--font-body);
+  }
+  .lang-opt-btn:hover { border-color: var(--gold); color: var(--white2); }
+  .lang-opt-btn.active {
+    background: var(--gold); color: var(--dark);
+    border-color: var(--gold); font-weight: 700;
+  }
+
+  /* ── Scheduled action status box ── */
+  .scheduled-status {
+    margin-top: 12px; padding: 12px 16px; border-radius: var(--radius);
+    background: rgba(201,168,76,0.08); border: 1px solid var(--gold-border);
+    font-size: 0.82rem; color: var(--white2);
+  }
+  .scheduled-status strong { color: var(--gold); }
+</style>
+</head>
+<body>
+<div id="main-navbar"></div>
+<div class="layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="page-title">Settings</div>
+    <div class="page-subtitle">Manage your account, security and preferences.</div>
+
+    <div id="global-msg"></div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="stab active" onclick="showTab('profile', this)">👤 Profile</button>
+      <button class="stab" onclick="showTab('security', this)">🔒 Security</button>
+      <button class="stab" onclick="showTab('preferences', this)">⚙️ Preferences</button>
+      <button class="stab" onclick="showTab('danger', this)">⚠️ Danger Zone</button>
+    </div>
+
+    <!-- ═══════ PROFILE ═══ -->
+    <div class="stab-panel active" id="tab-profile">
+      <div class="card">
+        <div class="settings-section-title">Your Profile</div>
+        <div class="avatar-wrap">
+          <div class="avatar-circle" id="avatar-display">?</div>
+          <div>
+            <div style="font-size:0.88rem;color:var(--white2);font-weight:500;" id="profile-name-display">Loading…</div>
+            <div style="font-size:0.8rem;color:var(--muted);" id="profile-email-display"></div>
+          </div>
+        </div>
+        <div id="profile-msg"></div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="p-fullname" placeholder="Your full name">
+        </div>
+        <div class="form-group">
+          <label>Business Name</label>
+          <input type="text" id="p-bizname" placeholder="Your business name">
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="p-email" placeholder="you@example.com" disabled
+            style="opacity:0.5;cursor:not-allowed;">
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">
+            Email changes are managed via Supabase authentication.
+          </div>
+        </div>
+        <button class="btn btn-gold" onclick="saveProfile()">Save Profile →</button>
+      </div>
+    </div>
+
+    <!-- ═══════ SECURITY ═══ -->
+    <div class="stab-panel" id="tab-security">
+      <div class="card">
+        <div class="settings-section-title">Password Security</div>
+        <div id="pw-msg"></div>
+        <!-- ── Password changes are email-only for security ── -->
+        <div style="padding:16px;background:rgba(201,168,76,0.06);border:1px solid var(--gold-border);border-radius:var(--radius);margin-bottom:20px;">
+          <div style="font-size:0.88rem;color:var(--white2);font-weight:500;margin-bottom:6px;">🔒 Secure Password Reset</div>
+          <p style="font-size:0.84rem;color:var(--muted);margin:0;">
+            For your security, password changes are only allowed through a verified email link. Click below and we'll send a secure reset link to your inbox.
+          </p>
+        </div>
+        <button class="btn btn-gold" onclick="sendResetEmail()">📧 Send Password Reset Link →</button>
+        <div id="reset-email-msg" style="margin-top:10px;"></div>
+
+        <!-- ── Password fields: hidden by default, shown ONLY when user arrives via email reset link ── -->
+        <div id="reset-form-section" style="display:none;margin-top:28px;padding-top:20px;border-top:1px solid var(--gold-border);">
+          <div class="settings-section-title">Set New Password</div>
+          <div id="pw-msg"></div>
+          <div class="form-group">
+            <label>New Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="new-pw" placeholder="Min. 6 characters">
+              <button class="pw-toggle" onclick="togglePw('new-pw','eye1')" type="button" id="eye1">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Confirm New Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="confirm-pw" placeholder="Repeat new password">
+              <button class="pw-toggle" onclick="togglePw('confirm-pw','eye2')" type="button" id="eye2">👁</button>
+            </div>
+          </div>
+          <button class="btn btn-gold" onclick="updatePassword()">Update Password →</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0;">
+        <div class="settings-section-title">Active Sessions</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Current Session</div>
+            <div class="settings-row-desc" id="session-info">Loading…</div>
+          </div>
+          <span class="badge badge-success">Active</span>
+        </div>
+        <div style="margin-top:14px;">
+          <button class="btn btn-danger btn-sm" onclick="signOutAll()">Sign Out All Devices</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ PREFERENCES ═══ -->
+    <div class="stab-panel" id="tab-preferences">
+      <div class="card">
+        <div class="settings-section-title">Display</div>
+
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Dark Mode</div>
+            <div class="settings-row-desc">Toggle between dark and light theme</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-theme" onchange="toggleTheme()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Currency Symbol</div>
+            <div class="settings-row-desc">Currently set to Nigerian Naira (₦)</div>
+          </div>
+          <select id="currency-select" onchange="saveCurrency()" style="width:auto;">
+            <option value="₦">₦ Naira</option>
+            <option value="$">$ Dollar</option>
+            <option value="€">€ Euro</option>
+            <option value="£">£ Pound</option>
+            <option value="GH₵">GH₵ Cedi</option>
+          </select>
+        </div>
+
+        <!-- ── BUSINESS TYPE ── -->
+        <div class="settings-row" style="align-items:flex-start;">
+          <div>
+            <div class="settings-row-label">Business type</div>
+            <div class="settings-row-desc">Changes labels and tools only. Your records are never changed or deleted. You can switch back at any time.</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-top:6px;" id="biztype-msg">Loading…</div>
+          </div>
+          <div id="biztype-btns" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm" data-t="products" disabled>🛍️ I sell products</button>
+            <button class="btn btn-outline btn-sm" data-t="services" disabled>✂️ I provide services</button>
+            <button class="btn btn-outline btn-sm" data-t="both" disabled>Both</button>
+          </div>
+        </div>
+
+        <!-- ── BOOK LINK ── -->
+        <div class="settings-row" id="booklink-row" style="align-items:flex-start;display:none;">
+          <div>
+            <div class="settings-row-label">Growthive Book</div>
+            <div class="settings-row-desc" id="booklink-desc"></div>
+          </div>
+          <button class="btn btn-outline btn-sm" id="booklink-off">Disconnect</button>
+        </div>
+
+        <!-- ── LANGUAGE PREFERENCE ── -->
+        <div class="settings-row" style="align-items:flex-start;">
+          <div>
+            <div class="settings-row-label">🌐 Language</div>
+            <div class="settings-row-desc">Choose your preferred language for the entire app</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-top:6px;" id="lang-saved-msg"></div>
+          </div>
+          <div class="lang-picker-settings" id="lang-picker-settings">
+            <button class="lang-opt-btn" data-lang="en" onclick="changeLangSetting('en')">🇬🇧 English</button>
+            <button class="lang-opt-btn" data-lang="ha" onclick="changeLangSetting('ha')">🇳🇬 Hausa</button>
+            <button class="lang-opt-btn" data-lang="yo" onclick="changeLangSetting('yo')">🇳🇬 Yoruba</button>
+            <button class="lang-opt-btn" data-lang="ig" onclick="changeLangSetting('ig')">🇳🇬 Igbo</button>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Low Stock Alert Threshold</div>
+            <div class="settings-row-desc">Default warning level for inventory items</div>
+          </div>
+          <input type="number" id="stock-threshold" value="5" min="1" max="100"
+            style="width:80px;text-align:center;" onchange="saveThreshold()">
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0;">
+        <div class="settings-section-title">Notifications</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Low Stock Alerts</div>
+            <div class="settings-row-desc">Show warnings when items are running low</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-stock-alert" checked onchange="savePref('stockAlert', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Debt Due Reminders</div>
+            <div class="settings-row-desc">Highlight overdue debt records</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-debt-alert" checked onchange="savePref('debtAlert', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ DANGER ZONE ═══ -->
+    <div class="stab-panel" id="tab-danger">
+      <div class="card">
+        <div class="settings-section-title" style="color:var(--danger);">⚠️ Danger Zone</div>
+        <p style="font-size:0.88rem;color:var(--muted);margin-bottom:20px;">
+          These actions are permanent and cannot be undone. Please proceed with extreme caution.
+        </p>
+
+        <!-- Clear All Data -->
+        <div class="danger-zone" style="margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:600;color:var(--white2);margin-bottom:4px;">Clear All Data</div>
+              <div style="font-size:0.82rem;color:var(--muted);">
+                Schedules deletion of all your sales, expenses, debts, inventory and reminders.<br>
+                You have <strong style="color:var(--gold);">7 days</strong> to cancel before data is permanently removed. Your account and profile will remain.
+              </div>
+            </div>
+            <button class="btn btn-danger" id="clear-data-btn" onclick="clearAllData()">🗑️ Schedule Data Clear</button>
+          </div>
+          <div id="clear-data-status"></div>
+        </div>
+
+        <!-- Delete Account -->
+        <div class="danger-zone">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:600;color:var(--danger);margin-bottom:4px;">Delete Account</div>
+              <div style="font-size:0.82rem;color:var(--muted);">
+                Schedules permanent deletion of your account and all associated data.<br>
+                You have <strong style="color:var(--gold);">30 days</strong> to cancel before the account is permanently removed.
+              </div>
+            </div>
+            <button class="btn btn-danger" id="delete-account-btn" onclick="deleteAccount()">💀 Schedule Deletion</button>
+          </div>
+          <div id="delete-account-status"></div>
+        </div>
+
+        <div id="danger-msg" style="margin-top:14px;"></div>
+      </div>
+      <div class="card" style="margin-top:0;">
+        <div class="settings-section-title">Session</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Sign Out</div>
+            <div class="settings-row-desc">Log out of your account on this device</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="doSignOut()">Sign Out →</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div id="main-footer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPA_URL = 'https://ejuhpwiyzevuhzcdsjmi.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdWhwd2l5emV2dWh6Y2Rzam1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MDA3NzcsImV4cCI6MjA5NDA3Njc3N30.YVIC1qcywVycAEOIQeg0WfDyFzFnqfRPP-WMbcM2QC4';
+</script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/lang.js"></script>
+<script src="js/app.js"></script>
+<script src="js/biztype.js"></script>
+<script>
+let currentUser;
+
+// Handle password reset from email link
+(async () => {
+  const hash = window.location.hash;
+  if (hash.includes('access_token') || hash.includes('type=recovery')) {
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (session) {
+      document.getElementById('global-msg').innerHTML =
+        '<div class="alert alert-success">🔑 Password reset link verified! Please set your new password below.</div>';
+      // Reveal the hidden password fields — user arrived via verified email link
+      document.getElementById('reset-form-section').style.display = 'block';
+      showTab('security', document.querySelectorAll('.stab')[1]);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }
+  if (hash.includes('error=access_denied') || hash.includes('otp_expired')) {
+    document.getElementById('global-msg').innerHTML =
+      '<div class="alert alert-danger">⚠️ Your reset link has expired. Please request a new one from the <a href="login.html" style="color:var(--gold);">login page</a>.</div>';
+    showTab('security', document.querySelectorAll('.stab')[1]);
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+})();
+
+// Init
+(async () => {
+  currentUser = await requireAuth();
+  if (!currentUser) return;
+  await initPage('settings');
+  loadProfile();
+  loadPrefs();
+  loadSessionInfo();
+  highlightCurrentLang();
+  loadDangerZoneStatus();
+})();
+
+// Tabs
+function showTab(name, btn) {
+  document.querySelectorAll('.stab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// Load Profile — also loads preferred_currency from Supabase
+async function loadProfile() {
+  const { data } = await _supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+  if (data) {
+    document.getElementById('p-fullname').value = data.full_name || '';
+    document.getElementById('p-bizname').value = data.business_name || '';
+    document.getElementById('profile-name-display').textContent = data.full_name || 'No name set';
+    document.getElementById('profile-email-display').textContent = currentUser.email || '';
+    document.getElementById('p-email').value = currentUser.email || '';
+    const av = document.getElementById('avatar-display');
+    if (data.full_name) av.textContent = data.full_name.charAt(0).toUpperCase();
+    // ── Sync currency from Supabase → localStorage ──
+    if (data.preferred_currency) {
+      localStorage.setItem('currency', data.preferred_currency);
+      document.getElementById('currency-select').value = data.preferred_currency;
+    }
+  }
+}
+
+// Save Profile
+async function saveProfile() {
+  const full_name = document.getElementById('p-fullname').value.trim();
+  const business_name = document.getElementById('p-bizname').value.trim();
+  const msg = document.getElementById('profile-msg');
+  if (!full_name || !business_name) {
+    msg.innerHTML = '<div class="alert alert-danger">Please fill in both fields.</div>'; return;
+  }
+  msg.innerHTML = '<div class="alert alert-gold">Saving…</div>';
+  const { error } = await _supabase.from('profiles').update({ full_name, business_name }).eq('id', currentUser.id);
+  if (error) { msg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+  document.getElementById('profile-name-display').textContent = full_name;
+  document.getElementById('avatar-display').textContent = full_name.charAt(0).toUpperCase();
+  msg.innerHTML = '<div class="alert alert-success">✅ Profile updated successfully!</div>';
+  setTimeout(() => msg.innerHTML = '', 3000);
+}
+
+// Send Reset Email — the ONLY way to change password
+async function sendResetEmail() {
+  const msg = document.getElementById('reset-email-msg');
+  msg.innerHTML = '<div class="alert alert-gold">Sending…</div>';
+  const { error } = await _supabase.auth.resetPasswordForEmail(currentUser.email, {
+    redirectTo: 'https://growthivesystems.github.io/monitor/settings.html'
+  });
+  if (error) { msg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+  msg.innerHTML = '<div class="alert alert-success">✅ Reset email sent to ' + currentUser.email + '. Check your inbox and follow the link to set a new password.</div>';
+}
+
+// Session Info
+async function loadSessionInfo() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  const el = document.getElementById('session-info');
+  if (session) {
+    const d = new Date(session.expires_at * 1000);
+    el.textContent = `Signed in as ${currentUser.email} · Expires ${d.toLocaleDateString('en-GB')}`;
+  } else {
+    el.textContent = 'No active session found.';
+  }
+}
+
+// Sign Out All
+async function signOutAll() {
+  if (!confirm('Sign out from all devices?')) return;
+  await _supabase.auth.signOut({ scope: 'global' });
+  window.location.href = 'login.html';
+}
+
+// Sign Out
+async function doSignOut() {
+  await _supabase.auth.signOut();
+  window.location.href = 'login.html';
+}
+
+// Load Preferences
+function loadPrefs() {
+  const theme = localStorage.getItem('theme');
+  document.getElementById('toggle-theme').checked = theme === 'light';
+  const currency = localStorage.getItem('currency') || '₦';
+  document.getElementById('currency-select').value = currency;
+  const threshold = localStorage.getItem('stockThreshold') || '5';
+  document.getElementById('stock-threshold').value = threshold;
+  const stockAlert = localStorage.getItem('stockAlert') !== 'false';
+  document.getElementById('toggle-stock-alert').checked = stockAlert;
+  const debtAlert = localStorage.getItem('debtAlert') !== 'false';
+  document.getElementById('toggle-debt-alert').checked = debtAlert;
+}
+
+function toggleTheme() {
+  const isLight = document.getElementById('toggle-theme').checked;
+  if (isLight) {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('theme', 'dark');
+  }
+}
+
+// Save Currency — saves to BOTH localStorage AND Supabase
+async function saveCurrency() {
+  const val = document.getElementById('currency-select').value;
+  localStorage.setItem('currency', val);
+  try {
+    await _supabase.from('profiles').update({ preferred_currency: val }).eq('id', currentUser.id);
+  } catch(e) { console.warn('Could not save currency to Supabase:', e); }
+  showGlobalMsg('✅ Currency preference saved.');
+}
+
+function paintBizButtons(cur) {
+  document.querySelectorAll('#biztype-btns button').forEach(b => {
+    const on = b.dataset.t === cur;
+    b.disabled = false;
+    b.className = 'btn btn-sm ' + (on ? 'btn-gold' : 'btn-outline');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  document.getElementById('biztype-msg').textContent = '';
+}
+async function saveBizTypeSetting(type) {
+  const btns = document.querySelectorAll('#biztype-btns button');
+  btns.forEach(b => b.disabled = true);
+  const res = await saveBizType(type, currentUser.id);
+  if (res.ok) { showGlobalMsg('✅ Business type saved.'); setTimeout(() => window.location.reload(), 600); }
+  else {
+    paintBizButtons(getBizType());
+    document.getElementById('biztype-msg').innerHTML = '<span style="color:var(--danger);">Could not switch: ' + (res.error || 'unknown error') + '</span>';
+  }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('#biztype-btns button'); if (!b || b.disabled) return;
+  if (b.dataset.t === getBizType()) return;
+  saveBizTypeSetting(b.dataset.t);
+});
+(async () => {
+  const wait = setInterval(async () => {
+    if (typeof currentUser !== 'undefined' && currentUser && typeof loadBizType === 'function') {
+      clearInterval(wait);
+      await loadBizType();
+      paintBizButtons(getBizType());
+    }
+  }, 300);
+})();
+
+function saveThreshold() {
+  localStorage.setItem('stockThreshold', document.getElementById('stock-threshold').value);
+  showGlobalMsg('✅ Stock threshold saved.');
+}
+
+function savePref(key, val) {
+  localStorage.setItem(key, val);
+  showGlobalMsg('✅ Preference saved.');
+}
+
+// ── LANGUAGE PREFERENCE ──
+function highlightCurrentLang() {
+  const current = localStorage.getItem('growthive_lang') || 'en';
+  document.querySelectorAll('.lang-opt-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === current);
+  });
+}
+
+async function changeLangSetting(code) {
+  document.querySelectorAll('.lang-opt-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === code);
+  });
+  localStorage.setItem('growthive_lang', code);
+  try {
+    await _supabase.from('profiles').update({ preferred_language: code }).eq('id', currentUser.id);
+  } catch(e) { console.warn('Could not save language:', e); }
+  const names = { en: 'English', ha: 'Hausa', yo: 'Yoruba', ig: 'Igbo' };
+  document.getElementById('lang-saved-msg').textContent = `✅ Language changed to ${names[code]}. Reloading…`;
+  setTimeout(() => location.reload(), 1000);
+}
+
+// ── DANGER ZONE — SCHEDULED ACTIONS ──
+
+// Load current scheduled status from Supabase on page load
+async function loadDangerZoneStatus() {
+  const { data } = await _supabase.from('profiles').select('clear_data_scheduled_at, deletion_scheduled_at').eq('id', currentUser.id).single();
+  if (!data) return;
+
+  // Clear Data status
+  if (data.clear_data_scheduled_at) {
+    const clearDate = new Date(data.clear_data_scheduled_at);
+    const clearEl = document.getElementById('clear-data-status');
+    clearEl.innerHTML = `<div class="scheduled-status">
+      ⏳ Data clear scheduled for <strong>${clearDate.toLocaleDateString('en-GB')}</strong>.
+      All your data will be permanently deleted on this date unless cancelled.<br>
+      <button class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="cancelClearData()">↩️ Cancel — Keep My Data</button>
+    </div>`;
+    document.getElementById('clear-data-btn').textContent = '🗑️ Already Scheduled';
+    document.getElementById('clear-data-btn').disabled = true;
+  }
+
+  // Account Deletion status
+  if (data.deletion_scheduled_at) {
+    const delDate = new Date(data.deletion_scheduled_at);
+    const delEl = document.getElementById('delete-account-status');
+    delEl.innerHTML = `<div class="scheduled-status">
+      ⏳ Account deletion scheduled for <strong>${delDate.toLocaleDateString('en-GB')}</strong>.
+      Your account will be permanently deleted on this date unless cancelled.<br>
+      <button class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="cancelDeleteAccount()">↩️ Cancel — Keep My Account</button>
+    </div>`;
+    document.getElementById('delete-account-btn').textContent = '💀 Already Scheduled';
+    document.getElementById('delete-account-btn').disabled = true;
+  }
+}
+
+// Schedule data clear in 7 days
+async function clearAllData() {
+  if (!confirm('This will schedule deletion of ALL your sales, expenses, debts, inventory and reminders in 7 days. You can cancel within that time. Continue?')) return;
+  const msg = document.getElementById('danger-msg');
+  msg.innerHTML = '<div class="alert alert-gold">Scheduling…</div>';
+  const clearDate = new Date();
+  clearDate.setDate(clearDate.getDate() + 7);
+  const { error } = await _supabase.from('profiles').update({ clear_data_scheduled_at: clearDate.toISOString() }).eq('id', currentUser.id);
+  if (error) { msg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+  msg.innerHTML = '<div class="alert alert-success">✅ Data clear scheduled for ' + clearDate.toLocaleDateString('en-GB') + '. You can cancel this within 7 days.</div>';
+  loadDangerZoneStatus();
+}
+
+// Cancel scheduled data clear
+async function cancelClearData() {
+  if (!confirm('Cancel the scheduled data clear? Your data will be kept.')) return;
+  const { error } = await _supabase.from('profiles').update({ clear_data_scheduled_at: null }).eq('id', currentUser.id);
+  if (error) { showGlobalMsg('❌ Could not cancel. Please try again.'); return; }
+  showGlobalMsg('✅ Data clear cancelled. Your data is safe.');
+  document.getElementById('clear-data-status').innerHTML = '';
+  document.getElementById('clear-data-btn').textContent = '🗑️ Schedule Data Clear';
+  document.getElementById('clear-data-btn').disabled = false;
+}
+
+// Schedule account deletion in 30 days
+async function deleteAccount() {
+  if (!confirm('This will schedule permanent deletion of your account in 30 days. You can cancel within that time. Continue?')) return;
+  const typed = prompt('For security, type DELETE to confirm:');
+  if (typed !== 'DELETE') { alert('Cancelled — you did not type DELETE.'); return; }
+  const msg = document.getElementById('danger-msg');
+  msg.innerHTML = '<div class="alert alert-gold">Scheduling…</div>';
+  const delDate = new Date();
+  delDate.setDate(delDate.getDate() + 30);
+  const { error } = await _supabase.from('profiles').update({ deletion_scheduled_at: delDate.toISOString() }).eq('id', currentUser.id);
+  if (error) { msg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+  msg.innerHTML = '<div class="alert alert-success">✅ Account deletion scheduled for ' + delDate.toLocaleDateString('en-GB') + '. You can cancel within 30 days.</div>';
+  loadDangerZoneStatus();
+}
+
+// Cancel scheduled account deletion
+async function cancelDeleteAccount() {
+  if (!confirm('Cancel the scheduled account deletion? Your account will be kept.')) return;
+  const { error } = await _supabase.from('profiles').update({ deletion_scheduled_at: null }).eq('id', currentUser.id);
+  if (error) { showGlobalMsg('❌ Could not cancel. Please try again.'); return; }
+  showGlobalMsg('✅ Account deletion cancelled. Your account is safe.');
+  document.getElementById('delete-account-status').innerHTML = '';
+  document.getElementById('delete-account-btn').textContent = '💀 Schedule Deletion';
+  document.getElementById('delete-account-btn').disabled = false;
+}
+
+// Update Password — only callable after arriving via email reset link
+async function updatePassword() {
+  const newPw = document.getElementById('new-pw').value;
+  const confirmPw = document.getElementById('confirm-pw').value;
+  const msg = document.getElementById('pw-msg');
+  if (!newPw || newPw.length < 6) {
+    msg.innerHTML = '<div class="alert alert-danger">⚠️ Password must be at least 6 characters.</div>'; return;
+  }
+  if (newPw !== confirmPw) {
+    msg.innerHTML = '<div class="alert alert-danger">❌ Passwords do not match.</div>'; return;
+  }
+  msg.innerHTML = '<div class="alert alert-gold">Updating…</div>';
+  const { error } = await _supabase.auth.updateUser({ password: newPw });
+  if (error) { msg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+  msg.innerHTML = '<div class="alert alert-success">✅ Password updated! Signing you out…</div>';
+  document.getElementById('new-pw').value = '';
+  document.getElementById('confirm-pw').value = '';
+  setTimeout(async () => {
+    await _supabase.auth.signOut();
+    window.location.href = 'login.html';
+  }, 2000);
+}
+
+// Toggle password visibility
+function togglePw(inputId, eyeId) {
+  const input = document.getElementById(inputId);
+  const eye = document.getElementById(eyeId);
+  input.type = input.type === 'password' ? 'text' : 'password';
+  eye.textContent = input.type === 'password' ? '👁' : '🙈';
+}
+
+// Helpers
+function showGlobalMsg(text) {
+  const el = document.getElementById('global-msg');
+  el.innerHTML = `<div class="alert alert-success">${text}</div>`;
+  setTimeout(() => el.innerHTML = '', 4000);
+}
+
+const saved = localStorage.getItem('theme');
+if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+
+(async () => {
+  const wait = setInterval(async () => {
+    if (typeof currentUser !== 'undefined' && currentUser) {
+      clearInterval(wait);
+      try {
+        const { data } = await _supabase.from('book_links').select('*').eq('user_id', currentUser.id).eq('active', true);
+        if (!data || !data.length) return;
+        document.getElementById('booklink-row').style.display = '';
+        document.getElementById('booklink-desc').textContent = 'Connected to "' + (data[0].book_business_name || 'your Book business') + '" since ' + String(data[0].connected_at).slice(0, 10) + '. Finished bookings are added to your sales automatically.';
+        document.getElementById('booklink-off').onclick = async () => {
+          if (!confirm('Disconnect Book? Jobs already added stay in Monitor.')) return;
+          await _supabase.from('book_links').update({ active: false }).eq('user_id', currentUser.id);
+          window.location.reload();
+        };
+      } catch (e) { /* 24-book-link.sql not run yet: nothing to show */ }
+    }
+  }, 300);
+})();
+</script>
+</body>
+</html>
