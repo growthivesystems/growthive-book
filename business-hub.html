@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/monitor-link.js"></script>
 <link rel="stylesheet" href="assets/css/styles.css">
 <style>
   :root{
@@ -230,6 +231,7 @@
 
     await Promise.all([loadBookings(), loadServices(), loadGallery()]);
     render();
+    MonitorLink.syncPending(sb, business.id).catch(()=>{});
   }
 
   async function loadBookings(){
@@ -480,9 +482,11 @@
         const upd = { status: 'completed', amount_paid: amt, payment_method: ov.querySelector('#d_method').value,
                       owner_note: ov.querySelector('#d_note').value.trim() || null };
         if (b.status !== 'completed') upd.completed_at = new Date().toISOString();
+        upd.monitor_synced_at = null;
         const { error } = await sb.from('bookings').update(upd).eq('id', b.id);
         if (error) return dbProblem(error);
         await loadBookings(); render();
+        MonitorLink.syncPending(sb, business.id).catch(()=>{});
       });
     const m = document.querySelector('#d_method'); if (m && b.payment_method) m.value = b.payment_method;
   }
@@ -519,6 +523,7 @@
         if (error) return dbProblem(error);
         currentBookingTab = 'done';
         await loadBookings(); render();
+        MonitorLink.syncPending(sb, business.id).catch(()=>{});
       });
     const sel = document.querySelector('#w_service'), amt = document.querySelector('#w_amount');
     const fill = () => { const p = sel.selectedOptions[0].getAttribute('data-price'); if (p) amt.value = p; };
@@ -637,6 +642,8 @@
         <div class="gallery-hint">These photos show on your public booking page. JPG or PNG, one at a time.</div>
       </div>
 
+      <div class="card" id="monitorCard"><h2>Growthive Monitor</h2><div id="monitorBody" style="font-size:14px;">Loading…</div></div>
+
       <div class="card">
         <h2>Availability</h2>
         <div id="manageDaysList"></div>
@@ -667,7 +674,36 @@
     renderServiceEditRows();
     renderGalleryGrid();
     renderManageDays();
+    renderMonitorCard();
   }
+
+  async function renderMonitorCard(){
+    const box = document.getElementById('monitorBody'); if (!box) return;
+    const link = await MonitorLink.get(sb, business.id);
+    if (link){
+      box.innerHTML = `<p style="margin:0 0 8px;">Connected to <b>${escapeHtml(link.monitor_email || 'Monitor')}</b> since ${escapeHtml(String(link.connected_at).slice(0,10))}. Every booking you mark Done goes into your Monitor sales and jobs automatically.</p>
+        <div id="mlMsg" style="color:var(--text-muted);margin-bottom:8px;"></div>
+        <button class="btn btn-ghost" id="mlSync">Sync now</button> <button class="btn btn-ghost" id="mlOff">Disconnect</button>`;
+      document.getElementById('mlSync').onclick = async () => { const r = await MonitorLink.syncPending(sb, business.id); document.getElementById('mlMsg').textContent = r.sent ? r.sent + ' sent to Monitor.' : 'Everything is up to date.'; };
+      document.getElementById('mlOff').onclick = async () => { if (!confirm('Disconnect from Monitor? Jobs already sent stay there.')) return; await MonitorLink.disconnect(sb, business.id); renderMonitorCard(); };
+    } else {
+      box.innerHTML = `<p style="margin:0 0 8px;">Optional. Link your Growthive Monitor account so finished bookings count in your daily sales and profit. Only new bookings from today on are sent. Monitor will switch to "Both" if it was set to products only. Your password is used once and not saved.</p>
+        <label>Monitor email</label><input type="email" id="ml_email" autocomplete="off">
+        <label>Monitor password</label><input type="password" id="ml_pass" autocomplete="off">
+        <div id="mlErr" style="color:#b00020;margin:8px 0;display:none;"></div>
+        <button class="btn btn-primary" id="mlOn">Connect to Monitor</button>`;
+      document.getElementById('mlOn').onclick = async (ev) => {
+        const btn = ev.target, err = document.getElementById('mlErr'); err.style.display = 'none';
+        const email = document.getElementById('ml_email').value.trim(), pw = document.getElementById('ml_pass').value;
+        if (!email || !pw){ err.textContent = 'Enter your Monitor email and password.'; err.style.display = 'block'; return; }
+        btn.disabled = true; btn.textContent = 'Connecting…';
+        const r = await MonitorLink.connect(sb, business, allServices, email, pw);
+        if (r.error){ err.textContent = r.error; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Connect to Monitor'; return; }
+        renderMonitorCard();
+      };
+    }
+  }
+
 
   function showManageMessage(msg, isError){
     const el = document.getElementById('infoBanner');
