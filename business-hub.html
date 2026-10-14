@@ -193,6 +193,8 @@
 
 <script>
   const sb = supabaseClient;
+  const mlReady = () => typeof MonitorLink !== 'undefined';
+  const mlSync = () => { if (mlReady()) MonitorLink.syncPending(sb, business.id).catch(()=>{}); };
   const shell = document.getElementById('shell');
 
   const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -231,7 +233,7 @@
 
     await Promise.all([loadBookings(), loadServices(), loadGallery()]);
     render();
-    MonitorLink.syncPending(sb, business.id).catch(()=>{});
+    mlSync();
   }
 
   async function loadBookings(){
@@ -486,7 +488,7 @@
         const { error } = await sb.from('bookings').update(upd).eq('id', b.id);
         if (error) return dbProblem(error);
         await loadBookings(); render();
-        MonitorLink.syncPending(sb, business.id).catch(()=>{});
+        mlSync();
       });
     const m = document.querySelector('#d_method'); if (m && b.payment_method) m.value = b.payment_method;
   }
@@ -523,7 +525,7 @@
         if (error) return dbProblem(error);
         currentBookingTab = 'done';
         await loadBookings(); render();
-        MonitorLink.syncPending(sb, business.id).catch(()=>{});
+        mlSync();
       });
     const sel = document.querySelector('#w_service'), amt = document.querySelector('#w_amount');
     const fill = () => { const p = sel.selectedOptions[0].getAttribute('data-price'); if (p) amt.value = p; };
@@ -679,12 +681,14 @@
 
   async function renderMonitorCard(){
     const box = document.getElementById('monitorBody'); if (!box) return;
+    if (!mlReady()){ box.innerHTML = '<span style="color:#b00020;">The Monitor link file is missing: upload <b>assets/js/monitor-link.js</b> to your Book repo (check the folder path and spelling), then refresh.</span>'; return; }
+    try {
     const link = await MonitorLink.get(sb, business.id);
     if (link){
       box.innerHTML = `<p style="margin:0 0 8px;">Connected to <b>${escapeHtml(link.monitor_email || 'Monitor')}</b> since ${escapeHtml(String(link.connected_at).slice(0,10))}. Every booking you mark Done goes into your Monitor sales and jobs automatically.</p>
         <div id="mlMsg" style="color:var(--text-muted);margin-bottom:8px;"></div>
         <button class="btn btn-ghost" id="mlSync">Sync now</button> <button class="btn btn-ghost" id="mlOff">Disconnect</button>`;
-      document.getElementById('mlSync').onclick = async () => { const r = await MonitorLink.syncPending(sb, business.id); document.getElementById('mlMsg').textContent = r.sent ? r.sent + ' sent to Monitor.' : 'Everything is up to date.'; };
+      document.getElementById('mlSync').onclick = async () => { const r = await MonitorLink.syncPending(sb, business.id); document.getElementById('mlMsg').textContent = r.error ? 'Could not send: ' + r.error : (r.sent ? r.sent + ' sent to Monitor.' : 'Everything is up to date.'); };
       document.getElementById('mlOff').onclick = async () => { if (!confirm('Disconnect from Monitor? Jobs already sent stay there.')) return; await MonitorLink.disconnect(sb, business.id); renderMonitorCard(); };
     } else {
       box.innerHTML = `<p style="margin:0 0 8px;">Optional. Link your Growthive Monitor account so finished bookings count in your daily sales and profit. Only new bookings from today on are sent. Monitor will switch to "Both" if it was set to products only. Your password is used once and not saved.</p>
@@ -702,6 +706,7 @@
         renderMonitorCard();
       };
     }
+    } catch (e) { box.innerHTML = '<span style="color:#b00020;">Could not load the Monitor link: ' + escapeHtml(e.message || String(e)) + '</span>'; }
   }
 
 
