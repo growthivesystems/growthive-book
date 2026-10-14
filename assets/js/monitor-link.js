@@ -43,7 +43,7 @@ const MonitorLink = {
         p_token: link.token, p_ref: b.id, p_service: (b.services && b.services.name) || 'Service',
         p_amount: Number(b.amount_paid || 0), p_method: b.payment_method || 'cash', p_date: b.booking_date,
         p_duration: (b.services && b.services.duration_minutes) || null, p_note: b.owner_note || null });
-      if (error) { if (/Link not valid/i.test(error.message)) { await sb.from('monitor_links').delete().eq('business_id', businessId); } break; }
+      if (error) { if (/Link not valid/i.test(error.message)) { await sb.from('monitor_links').delete().eq('business_id', businessId); } return { sent, error: error.message + (/function|schema cache|does not exist/i.test(error.message) ? ' (Has 24-book-link.sql been run in Monitor?)' : '') }; }
       await sb.from('bookings').update({ monitor_synced_at: new Date().toISOString() }).eq('id', b.id);
       sent++;
     }
