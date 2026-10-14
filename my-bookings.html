@@ -287,7 +287,7 @@
         ? `https://wa.me/${biz.whatsapp.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(`Hi! Following up on my booking for ${svc.name || 'my appointment'} on ${b.booking_date} at ${b.booking_time?.slice(0,5)}.`)}`
         : null;
 
-      const canCancel = activeTab === 'upcoming' && b.status !== 'cancelled';
+      const canCancel = activeTab === 'upcoming' && ['pending','confirmed'].includes(b.status);
 
       return `
         <div class="booking-card">

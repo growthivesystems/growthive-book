@@ -49,7 +49,7 @@
   }
   .copy-btn{background:none;border:none;color:var(--blue);cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;}
 
-  .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
   .stat-box{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center;}
   .stat-box .num{font-size:26px;font-weight:800;}
   .stat-box .label{font-size:12.5px;color:var(--text-muted);margin-top:2px;}
@@ -81,6 +81,22 @@
   .status-pill.pending{background:var(--warn-bg);color:var(--warn);}
   .status-pill.confirmed{background:var(--success-bg);color:var(--success);}
   .status-pill.cancelled{background:var(--danger-bg);color:var(--danger);}
+  .status-pill.completed{background:var(--blue-light);color:var(--blue);}
+  .status-pill.no_show{background:#F3F4F6;color:#6B7280;}
+  .booking-row{flex-wrap:wrap;}
+  .booking-actions{flex-wrap:wrap;}
+  .btn-done{background:var(--blue);color:#fff;}
+  .btn-ghost,.btn-sm.btn-ghost{background:#fff;border:1px solid var(--border);color:var(--navy);cursor:pointer;}
+  .btn-ghost:hover{background:#F7F8FA;}
+  .booking-meta{font-size:12.5px;margin-top:4px;color:var(--text-muted);}
+  .booking-meta strong{color:var(--success);}
+  .tabs-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .tabs-row .tabs{margin-bottom:0;flex-wrap:wrap;}
+  .modal-ov{position:fixed;inset:0;background:rgba(10,31,68,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;}
+  .modal-box{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:440px;max-height:90vh;overflow:auto;}
+  .modal-box h2{font-size:17px;margin:0 0 14px;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+  .modal-box .save-banner{margin-bottom:12px;}
 
   .booking-actions{display:flex;gap:8px;flex-shrink:0;}
   .btn-sm{
@@ -260,9 +276,10 @@
   function render(){
     const bookingUrl = window.location.origin + window.location.pathname.replace('business-hub.html','') + 'book.html?b=' + business.slug;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localToday();
     const pendingCount = allBookings.filter(b => b.status === 'pending').length;
-    const upcomingCount = allBookings.filter(b => b.booking_date >= todayStr && b.status !== 'cancelled').length;
+    const upcomingCount = allBookings.filter(b => b.booking_date >= todayStr && !['cancelled','completed','no_show'].includes(b.status)).length;
+    const earnedMonth = allBookings.filter(b => b.status === 'completed' && String(b.booking_date).slice(0,7) === todayStr.slice(0,7)).reduce((s,b) => s + Number(b.amount_paid || 0), 0);
     const totalCount = allBookings.length;
 
     shell.innerHTML = `
@@ -279,6 +296,7 @@
         <div class="stat-box"><div class="num">${upcomingCount}</div><div class="label">Upcoming</div></div>
         <div class="stat-box"><div class="num">${pendingCount}</div><div class="label">Awaiting approval</div></div>
         <div class="stat-box"><div class="num">${totalCount}</div><div class="label">Total bookings</div></div>
+        <div class="stat-box"><div class="num" style="font-size:21px;">${money(earnedMonth)}</div><div class="label">Earned this month</div></div>
       </div>
 
       <div class="page-tabs">
@@ -315,10 +333,14 @@
     const content = document.getElementById('pageContent');
     content.innerHTML = `
       <div class="card">
-        <div class="tabs">
-          <button class="tab-btn ${currentBookingTab==='upcoming'?'active':''}" data-tab="upcoming">Upcoming</button>
-          <button class="tab-btn ${currentBookingTab==='pending'?'active':''}" data-tab="pending">Pending</button>
-          <button class="tab-btn ${currentBookingTab==='all'?'active':''}" data-tab="all">All</button>
+        <div class="tabs-row">
+          <div class="tabs">
+            <button class="tab-btn ${currentBookingTab==='upcoming'?'active':''}" data-tab="upcoming">Upcoming</button>
+            <button class="tab-btn ${currentBookingTab==='pending'?'active':''}" data-tab="pending">Pending</button>
+            <button class="tab-btn ${currentBookingTab==='done'?'active':''}" data-tab="done">Done</button>
+            <button class="tab-btn ${currentBookingTab==='all'?'active':''}" data-tab="all">All</button>
+          </div>
+          <button class="btn btn-primary" id="walkinBtn" style="padding:9px 16px;">+ Walk-in</button>
         </div>
         <div id="bookingsList"></div>
       </div>
@@ -331,6 +353,7 @@
       });
     });
 
+    document.getElementById('walkinBtn').addEventListener('click', openWalkIn);
     renderBookingsList(todayStr);
   }
 
@@ -339,7 +362,9 @@
 
     let filtered = allBookings;
     if (currentBookingTab === 'upcoming'){
-      filtered = allBookings.filter(b => b.booking_date >= todayStr && b.status !== 'cancelled');
+      filtered = allBookings.filter(b => b.booking_date >= todayStr && !['cancelled','completed','no_show'].includes(b.status));
+    } else if (currentBookingTab === 'done'){
+      filtered = allBookings.filter(b => b.status === 'completed').slice().reverse();
     } else if (currentBookingTab === 'pending'){
       filtered = allBookings.filter(b => b.status === 'pending');
     }
@@ -359,6 +384,8 @@
           <div class="svc">${escapeHtml(svc.name || 'Service')}</div>
           <div class="when">${b.booking_date} at ${b.booking_time ? b.booking_time.slice(0,5) : ''}</div>
           <div class="customer">${escapeHtml(b.customer_name)} · ${escapeHtml(b.customer_phone)}</div>
+          ${b.status === 'completed' ? `<div class="booking-meta">Paid <strong>${money(b.amount_paid)}</strong>${b.payment_method ? ' · ' + escapeHtml(b.payment_method) : ''}${b.source === 'walkin' ? ' · walk-in' : ''}</div>` : ''}
+          ${b.owner_note ? `<div class="booking-meta">📝 ${escapeHtml(b.owner_note)}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
           <span class="status-pill ${b.status}">${b.status}</span>
@@ -378,14 +405,166 @@
         actions.appendChild(confirmBtn);
         actions.appendChild(cancelBtn);
       } else if (b.status === 'confirmed'){
-        const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'btn-sm btn-cancel';
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', () => updateStatus(b.id, 'cancelled'));
-        actions.appendChild(cancelBtn);
+        addBtn(actions, 'Done', 'btn-done', () => openDone(b));
+        addBtn(actions, 'Reschedule', 'btn-ghost', () => openReschedule(b));
+        addBtn(actions, 'No-show', 'btn-ghost', () => { if (confirm('Mark this booking as a no-show?')) updateStatus(b.id, 'no_show'); });
+        addBtn(actions, 'Cancel', 'btn-cancel', () => updateStatus(b.id, 'cancelled'));
+      } else if (b.status === 'completed'){
+        addBtn(actions, 'Edit amount', 'btn-ghost', () => openDone(b));
       }
+      addBtn(actions, b.owner_note ? 'Note' : '+ Note', 'btn-ghost', () => openNote(b));
       list.appendChild(row);
     });
+  }
+
+  /* ---------- helpers for money, dates, modals ---------- */
+  function money(n){ return '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 2 }); }
+  function localToday(){ return new Date().toLocaleDateString('en-CA'); }
+  function localNowTime(){ const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0'); }
+  function addBtn(parent, text, cls, fn){
+    const b = document.createElement('button');
+    b.className = 'btn-sm ' + cls; b.textContent = text; b.addEventListener('click', fn);
+    parent.appendChild(b);
+  }
+  function waNumber(phone){
+    let d = String(phone || '').replace(/[^0-9]/g, '');
+    if (d.startsWith('0')) d = '234' + d.slice(1);
+    return d;
+  }
+  function modal(title, bodyHtml, saveLabel, onSave){
+    const ov = document.createElement('div');
+    ov.className = 'modal-ov';
+    ov.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}">
+      <h2>${escapeHtml(title)}</h2>
+      <div class="save-banner error" data-err></div>
+      ${bodyHtml}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-x>Cancel</button>
+        ${saveLabel ? `<button class="btn btn-primary" data-ok>${escapeHtml(saveLabel)}</button>` : ''}
+      </div></div>`;
+    document.body.appendChild(ov);
+    const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    ov.addEventListener('click', e => { if (e.target === ov) close(); });
+    ov.querySelector('[data-x]').addEventListener('click', close);
+    const ok = ov.querySelector('[data-ok]');
+    if (ok) ok.addEventListener('click', async () => {
+      const err = ov.querySelector('[data-err]');
+      err.style.display = 'none'; ok.disabled = true;
+      try {
+        const problem = await onSave(ov);
+        if (problem){ err.textContent = problem; err.style.display = 'block'; ok.disabled = false; }
+        else close();
+      } catch (e){ err.textContent = e.message || 'Something went wrong.'; err.style.display = 'block'; ok.disabled = false; }
+    });
+    const first = ov.querySelector('input,select,textarea'); if (first) first.focus();
+    return ov;
+  }
+  const SQL_HINT = ' (Has the SQL file book-01-done-walkins-notes.sql been run in Supabase?)';
+  function dbProblem(error){ return error ? 'Could not save: ' + error.message + (/column|schema|status|policy|violates/i.test(error.message) ? SQL_HINT : '') : null; }
+  const METHODS = `<option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>`;
+
+  /* ---------- Done: enter the amount actually paid ---------- */
+  function openDone(b){
+    const svc = b.services || {};
+    const amount = b.amount_paid != null ? b.amount_paid : (svc.price || '');
+    modal(b.status === 'completed' ? 'Edit amount paid' : 'Mark as done', `
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">${escapeHtml(svc.name || 'Service')} · ${escapeHtml(b.customer_name)}</div>
+      <label>Amount paid (₦)</label><input type="number" id="d_amount" min="0" step="0.01" value="${escapeAttr(amount)}">
+      <label>Paid by</label><select id="d_method">${METHODS}</select>
+      <label>Note (optional)</label><input type="text" id="d_note" value="${escapeAttr(b.owner_note || '')}" placeholder="e.g. tipped, brought own polish">`,
+      'Save', async (ov) => {
+        const amt = parseFloat(ov.querySelector('#d_amount').value);
+        if (isNaN(amt) || amt < 0) return 'Enter the amount the customer paid (0 if free).';
+        const upd = { status: 'completed', amount_paid: amt, payment_method: ov.querySelector('#d_method').value,
+                      owner_note: ov.querySelector('#d_note').value.trim() || null };
+        if (b.status !== 'completed') upd.completed_at = new Date().toISOString();
+        const { error } = await sb.from('bookings').update(upd).eq('id', b.id);
+        if (error) return dbProblem(error);
+        await loadBookings(); render();
+      });
+    const m = document.querySelector('#d_method'); if (m && b.payment_method) m.value = b.payment_method;
+  }
+
+  /* ---------- Walk-in: a client who did not book online ---------- */
+  function openWalkIn(){
+    if (!allServices.length){ alert('Add at least one service under "Manage business" first.'); return; }
+    modal('Add a walk-in', `
+      <label>Service</label>
+      <select id="w_service">${allServices.map(s => `<option value="${escapeAttr(s.id)}" data-price="${escapeAttr(s.price || '')}">${escapeHtml(s.name)}${s.price ? ' — ' + money(s.price) : ''}</option>`).join('')}</select>
+      <div class="row-2">
+        <div><label>Client name</label><input type="text" id="w_name" placeholder="Walk-in client"></div>
+        <div><label>Phone (optional)</label><input type="tel" id="w_phone"></div>
+      </div>
+      <div class="row-2">
+        <div><label>Date</label><input type="date" id="w_date" value="${localToday()}"></div>
+        <div><label>Amount paid (₦)</label><input type="number" id="w_amount" min="0" step="0.01"></div>
+      </div>
+      <label>Paid by</label><select id="w_method">${METHODS}</select>
+      <label>Note (optional)</label><input type="text" id="w_note">`,
+      'Save walk-in', async (ov) => {
+        const sel = ov.querySelector('#w_service');
+        const amt = parseFloat(ov.querySelector('#w_amount').value);
+        if (isNaN(amt) || amt < 0) return 'Enter the amount the client paid.';
+        const row = {
+          business_id: business.id, service_id: sel.value,
+          customer_name: ov.querySelector('#w_name').value.trim() || 'Walk-in',
+          customer_phone: ov.querySelector('#w_phone').value.trim() || '-',
+          booking_date: ov.querySelector('#w_date').value || localToday(), booking_time: localNowTime(),
+          status: 'completed', amount_paid: amt, payment_method: ov.querySelector('#w_method').value,
+          completed_at: new Date().toISOString(), owner_note: ov.querySelector('#w_note').value.trim() || null, source: 'walkin'
+        };
+        const { error } = await sb.from('bookings').insert(row);
+        if (error) return dbProblem(error);
+        currentBookingTab = 'done';
+        await loadBookings(); render();
+      });
+    const sel = document.querySelector('#w_service'), amt = document.querySelector('#w_amount');
+    const fill = () => { const p = sel.selectedOptions[0].getAttribute('data-price'); if (p) amt.value = p; };
+    sel.addEventListener('change', fill); fill();
+  }
+
+  /* ---------- Reschedule ---------- */
+  function openReschedule(b){
+    const svc = b.services || {};
+    modal('Reschedule booking', `
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">${escapeHtml(svc.name || 'Service')} · ${escapeHtml(b.customer_name)}<br>Now: ${escapeHtml(b.booking_date)} at ${b.booking_time ? b.booking_time.slice(0,5) : ''}</div>
+      <div class="row-2">
+        <div><label>New date</label><input type="date" id="r_date" min="${localToday()}" value="${escapeAttr(b.booking_date)}"></div>
+        <div><label>New time</label><input type="time" id="r_time" value="${escapeAttr(b.booking_time ? b.booking_time.slice(0,5) : '')}"></div>
+      </div>`,
+      'Move booking', async (ov) => {
+        const date = ov.querySelector('#r_date').value, time = ov.querySelector('#r_time').value;
+        if (!date || !time) return 'Choose a date and a time.';
+        const toMin = t => { const [h, m] = String(t).slice(0,5).split(':').map(Number); return h * 60 + m; };
+        const dur = x => (x.services && x.services.duration_minutes) || business.appointment_interval_minutes || 30;
+        const s = toMin(time), e = s + dur(b);
+        const clash = allBookings.find(o => o.id !== b.id && o.booking_date === date && !['cancelled','no_show'].includes(o.status) &&
+          s < toMin(o.booking_time) + dur(o) && toMin(o.booking_time) < e);
+        if (clash) return 'That time overlaps ' + clash.customer_name + "'s booking at " + String(clash.booking_time).slice(0,5) + '. Pick another time.';
+        const { error } = await sb.from('bookings').update({ booking_date: date, booking_time: time + ':00', rescheduled_at: new Date().toISOString() }).eq('id', b.id);
+        if (error) return dbProblem(error);
+        await loadBookings(); render();
+        const wa = waNumber(b.customer_phone);
+        if (wa.length >= 10){
+          const msg = `Hello ${b.customer_name}, your ${svc.name || 'booking'} at ${business.business_name} has been moved to ${date} at ${time}. Please reply to confirm. Thank you.`;
+          modal('Booking moved', `<p style="font-size:14px;margin:0;">Let ${escapeHtml(b.customer_name)} know:</p>
+            <a class="btn btn-primary" style="margin-top:12px;text-decoration:none;" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">Message on WhatsApp</a>`, null, null);
+        }
+      });
+  }
+
+  /* ---------- Private note ---------- */
+  function openNote(b){
+    modal('Private note', `
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">Only you can see this. ${escapeHtml(b.customer_name)}</div>
+      <textarea id="n_note" rows="4" placeholder="e.g. allergic to latex, prefers short nails">${escapeHtml(b.owner_note || '')}</textarea>`,
+      'Save note', async (ov) => {
+        const { error } = await sb.from('bookings').update({ owner_note: ov.querySelector('#n_note').value.trim() || null }).eq('id', b.id);
+        if (error) return dbProblem(error);
+        await loadBookings(); render();
+      });
   }
 
   async function updateStatus(bookingId, newStatus){
