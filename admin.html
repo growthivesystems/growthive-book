@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  body{background:var(--bg-light);}
+  .top{background:var(--navy);color:#fff;}
+  .top-inner{max-width:1280px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .top .logo{color:#fff;}
+  .admin-tag{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#F59E0B;color:var(--navy);padding:3px 8px;border-radius:6px;margin-left:6px;}
+  .top-actions{display:flex;gap:8px;align-items:center;font-size:13px;color:rgba(255,255,255,.75);}
+  .top-actions button{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:8px 14px;font:inherit;font-size:13.5px;cursor:pointer;}
+  .top-actions button:hover{background:rgba(255,255,255,.18);}
+  main{max-width:1280px;margin:0 auto;padding:24px 20px 60px;}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
+  .stat{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+  .stat .n{font-size:26px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums;line-height:1.1;}
+  .stat .l{font-size:12.5px;color:var(--text-light);margin-top:4px;}
+
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto;}
+  .tabs button{background:none;border:none;border-bottom:2px solid transparent;padding:10px 14px;font:inherit;font-size:14.5px;font-weight:600;color:var(--text-light);cursor:pointer;white-space:nowrap;}
+  .tabs button.on{color:var(--navy);border-bottom-color:var(--royal);}
+  .tabs .count{font-weight:500;color:var(--text-light);margin-left:4px;}
+
+  .panel{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+  .filters{display:flex;flex-wrap:wrap;gap:10px;padding:14px;border-bottom:1px solid var(--border);align-items:center;}
+  .filters input,.filters select{padding:9px 12px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:14px;background:#fff;color:var(--text-dark);}
+  .filters input[type=search]{flex:1 1 220px;min-width:0;}
+  .filters .grow{flex:1;}
+  .btn-sm{padding:9px 14px;border-radius:9px;border:1px solid var(--border);background:#fff;font:inherit;font-size:14px;font-weight:500;color:var(--navy);cursor:pointer;white-space:nowrap;}
+  .btn-sm:hover{border-color:var(--navy);}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:#fff;font:inherit;font-size:13px;cursor:pointer;color:var(--text-dark);}
+  .chip.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;font-size:12px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.03em;padding:10px 14px;background:#FAFBFC;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;}
+  td{padding:11px 14px;border-bottom:1px solid #F1F3F6;vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:#FAFBFF;}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .muted{color:var(--text-light);}
+  .nowrap{white-space:nowrap;}
+  .name{font-weight:600;color:var(--navy);}
+  a.wa{color:#0F7A3D;font-weight:500;}
+  .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;text-transform:capitalize;white-space:nowrap;}
+  .pill.confirmed{background:#ECFDF5;color:#047857;}
+  .pill.pending{background:#FFFBEB;color:#B45309;}
+  .pill.cancelled{background:#FEF2F2;color:#B91C1C;}
+  .pill.completed{background:#EFF4FF;color:#1D4ED8;}
+  .pill.no_show{background:#F3F4F6;color:#6B7280;}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;background:#F3F4F6;color:#4B5563;white-space:nowrap;}
+  .tag.acc{background:#EFF4FF;color:#1D4ED8;}
+  .tag.walk{background:#FFF7ED;color:#C2410C;}
+  .foot{padding:12px 14px;font-size:13px;color:var(--text-light);border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .empty{padding:40px 16px;text-align:center;color:var(--text-light);}
+
+  .login{max-width:400px;margin:60px auto;background:#fff;border:1px solid var(--border);border-radius:18px;padding:32px;box-shadow:var(--shadow-md);}
+  .login h1{font-size:24px;margin-bottom:6px;}
+  .login p{font-size:14px;margin-bottom:22px;}
+  .state{max-width:560px;margin:60px auto;text-align:center;color:var(--text-light);}
+  .state code{display:block;margin-top:14px;background:#0A1F44;color:#E5E7EB;padding:14px;border-radius:10px;font-size:12.5px;text-align:left;white-space:pre-wrap;word-break:break-all;}
+  @media (max-width:600px){ main{padding:16px 12px 40px;} .stat .n{font-size:22px;} .login{margin:24px 12px;padding:24px 18px;} }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="top-inner">
+    <a href="index.html" class="logo"><div class="logo-mark">G</div>Growthive Book <span class="admin-tag">Admin</span></a>
+    <div class="top-actions" id="topActions" hidden>
+      <span id="updatedAt"></span>
+      <button id="refreshBtn" type="button">Refresh</button>
+      <button id="logoutBtn" type="button">Log out</button>
+    </div>
+  </div>
+</div>
+<main id="app"><div class="state">Loading…</div></main>
+
+<script>
+  const sb = supabaseClient;
+  const app = document.getElementById('app');
+  let DATA = null;
+  let tab = 'bookings';
+  const F = { q: '', business: '', status: '', when: 'all', from: '', to: '', type: '' };
+  let sortKey = null, sortDir = 1;
+
+  // ---------- helpers ----------
+  const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
+  const money = n => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
+  const lagosToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos' }).format(new Date());
+  const fmtDate = iso => { if (!iso) return ''; try { return new Date(String(iso).slice(0,10) + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); } catch(e){ return iso; } };
+  const fmtStamp = iso => { if (!iso) return ''; try { return new Date(iso).toLocaleString('en-GB', { timeZone:'Africa/Lagos', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }); } catch(e){ return iso; } };
+  const prettyPhone = p => { const d = String(p || '').replace(/\D/g,''); return d.startsWith('234') && d.length === 13 ? `+234 ${d.slice(3,6)} ${d.slice(6,9)} ${d.slice(9)}` : (p || ''); };
+  const waLink = p => { const d = String(p || '').replace(/\D/g,''); return d.length >= 10 ? `https://wa.me/${d}` : null; };
+  const bookingType = b => b.source === 'walkin' ? 'walkin' : (b.has_account ? 'account' : 'guest');
+  const TYPE_LABEL = { guest: 'Guest', account: 'Account', walkin: 'Walk-in' };
+
+  function csv(rows, name){
+    const text = rows.map(r => r.map(v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; }).join(',')).join('\n');
+    const blob = new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  // ---------- sign in ----------
+  function showLogin(msg){
+    document.getElementById('topActions').hidden = true;
+    app.innerHTML = `
+      <form class="login" id="loginForm" novalidate>
+        <h1>Admin sign in</h1>
+        <p>Use your Growthive Book login.</p>
+        <div class="alert alert-error ${msg ? 'show' : ''}" id="loginErr">${esc(msg || '')}</div>
+        <div class="field"><label for="em">Email</label><input type="email" id="em" autocomplete="username" required></div>
+        <div class="field"><label for="pw">Password</label><input type="password" id="pw" autocomplete="current-password" required></div>
+        <button class="btn btn-primary btn-block" id="loginBtn">Sign in</button>
+      </form>`;
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn'); btn.disabled = true; btn.textContent = 'Signing in…';
+      const { error } = await sb.auth.signInWithPassword({ email: document.getElementById('em').value.trim(), password: document.getElementById('pw').value });
+      if (error){ btn.disabled = false; btn.textContent = 'Sign in'; const el = document.getElementById('loginErr'); el.textContent = error.message; el.classList.add('show'); return; }
+      start();
+    });
+  }
+
+  async function start(){
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return showLogin();
+    const { data: isAdmin, error } = await sb.rpc('is_platform_admin');
+    if (error){
+      app.innerHTML = `<div class="state">Couldn't check admin access: ${esc(error.message)}<br><br>Has <b>sql/book-03-easy-booking.sql</b> been run in Supabase?</div>`;
+      return;
+    }
+    if (!isAdmin){
+      app.innerHTML = `<div class="state"><b>${esc(user.email)}</b> isn't an admin yet.<br>To make this account an admin, run this once in Supabase (SQL Editor):
+        <code>insert into public.platform_admins (user_id)\nselect id from auth.users where lower(email) = lower('${esc(user.email)}')\non conflict do nothing;</code>
+        <br><button class="btn-sm" id="out2">Use a different account</button></div>`;
+      document.getElementById('out2').onclick = async () => { await sb.auth.signOut(); showLogin(); };
+      return;
+    }
+    document.getElementById('topActions').hidden = false;
+    await load();
+  }
+
+  async function load(){
+    const btn = document.getElementById('refreshBtn'); btn.disabled = true; btn.textContent = 'Loading…';
+    const { data, error } = await sb.rpc('admin_dashboard');
+    btn.disabled = false; btn.textContent = 'Refresh';
+    if (error){ app.innerHTML = `<div class="state">Couldn't load data: ${esc(error.message)}</div>`; return; }
+    DATA = data;
+    document.getElementById('updatedAt').textContent = 'Updated ' + fmtStamp(data.generated_at);
+    render();
+  }
+
+  // ---------- derived data ----------
+  function customers(){
+    const map = new Map();
+    for (const b of DATA.bookings){
+      const key = b.phone_normalized;
+      if (!key) continue;                      // walk-ins without a phone
+      let c = map.get(key);
+      if (!c){ c = { phone: key, name: '', email: '', bookings: 0, cancelled: 0, spent: 0, first: null, last: null, lastBookedAt: null, businesses: new Set(), account: false }; map.set(key, c); }
+      c.bookings++;
+      if (b.status === 'cancelled') c.cancelled++;
+      if (b.status === 'completed') c.spent += Number(b.amount_paid || 0);
+      if (!c.name || (b.booking_date >= (c.last || ''))) c.name = b.customer_name || c.name;
+      if (b.customer_email && (!c.email || b.booking_date >= (c.last || ''))) c.email = b.customer_email;
+      if (!c.first || b.booking_date < c.first) c.first = b.booking_date;
+      if (!c.last || b.booking_date > c.last) c.last = b.booking_date;
+      if (b.created_at && (!c.lastBookedAt || b.created_at > c.lastBookedAt)) c.lastBookedAt = b.created_at;
+      if (b.business_name) c.businesses.add(b.business_name);
+      if (b.has_account) c.account = true;
+    }
+    for (const a of DATA.accounts){ const c = map.get(a.phone_normalized); if (c){ c.account = true; if (!c.email && a.email) c.email = a.email; } }
+    return [...map.values()];
+  }
+
+  function filteredBookings(){
+    const today = lagosToday();
+    const q = F.q.trim().toLowerCase();
+    const qDigits = q.replace(/\D/g,'');
+    return DATA.bookings.filter(b => {
+      if (F.business && b.business_id !== F.business) return false;
+      if (F.status && b.status !== F.status) return false;
+      if (F.type && bookingType(b) !== F.type) return false;
+      if (F.when === 'today' && b.booking_date !== today) return false;
+      if (F.when === 'upcoming' && !(b.booking_date >= today && ['pending','confirmed'].includes(b.status))) return false;
+      if (F.when === 'past' && !(b.booking_date < today)) return false;
+      if (F.from && b.booking_date < F.from) return false;
+      if (F.to && b.booking_date > F.to) return false;
+      if (q){
+        const hay = [b.customer_name, b.customer_email, b.business_name, b.service_name, b.customer_phone].join(' ').toLowerCase();
+        const phoneHit = qDigits.length >= 4 && String(b.phone_normalized || '').replace(/\D/g,'').includes(qDigits.replace(/^0/, ''));
+        if (!hay.includes(q) && !phoneHit) return false;
+      }
+      return true;
+    });
+  }
+
+  function sorted(rows, getters){
+    if (!sortKey || !getters[sortKey]) return rows;
+    const g = getters[sortKey];
+    return rows.slice().sort((a, b) => { const x = g(a), y = g(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
+  }
+
+  // ---------- render ----------
+  function render(){
+    const today = lagosToday();
+    const B = DATA.bookings;
+    const cust = customers();
+    const upcoming = B.filter(b => b.booking_date >= today && ['pending','confirmed'].includes(b.status)).length;
+    const todayN = B.filter(b => b.booking_date === today && b.status !== 'cancelled').length;
+    const withEmail = cust.filter(c => c.email).length;
+    const online = B.filter(b => b.source !== 'walkin');
+    const cancelled = online.filter(b => b.status === 'cancelled').length;
+
+    app.innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="n">${B.length}</div><div class="l">Total bookings</div></div>
+        <div class="stat"><div class="n">${upcoming}</div><div class="l">Upcoming</div></div>
+        <div class="stat"><div class="n">${todayN}</div><div class="l">Today</div></div>
+        <div class="stat"><div class="n">${cust.length}</div><div class="l">Customers (by phone)</div></div>
+        <div class="stat"><div class="n">${withEmail}</div><div class="l">Customers with email</div></div>
+        <div class="stat"><div class="n">${DATA.businesses.length}</div><div class="l">Businesses</div></div>
+        <div class="stat"><div class="n">${online.length ? Math.round(cancelled / online.length * 100) : 0}%</div><div class="l">Online bookings cancelled</div></div>
+      </div>
+      <div class="tabs" role="tablist">
+        ${[['bookings','Bookings',B.length],['customers','Customers',cust.length],['businesses','Businesses',DATA.businesses.length],['accounts','Customer accounts',DATA.accounts.length]]
+          .map(([k,l,n]) => `<button role="tab" class="${tab===k?'on':''}" data-tab="${k}">${l}<span class="count">${n}</span></button>`).join('')}
+      </div>
+      <div class="panel" id="panel"></div>`;
+    app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; sortKey = null; render(); });
+    ({ bookings: renderBookings, customers: () => renderCustomers(cust), businesses: renderBusinesses, accounts: renderAccounts })[tab]();
+  }
+
+  function headerRow(cols){
+    return `<tr>${cols.map(([k, label, cls]) => `<th data-sort="${k||''}" class="${cls||''}">${label}${sortKey===k ? (sortDir>0?' ↑':' ↓') : ''}</th>`).join('')}</tr>`;
+  }
+  function wireSort(panel, rerender){
+    panel.querySelectorAll('th[data-sort]').forEach(th => th.onclick = () => {
+      const k = th.dataset.sort; if (!k) return;
+      if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; }
+      rerender();
+    });
+  }
+
+  function renderBookings(){
+    const panel = document.getElementById('panel');
+    const bizOpts = DATA.businesses.map(b => `<option value="${esc(b.id)}" ${F.business===b.id?'selected':''}>${esc(b.business_name)}</option>`).join('');
+    panel.innerHTML = `
+      <div class="filters">
+        <input type="search" id="q" placeholder="Search name, phone, email, business, service" value="${esc(F.q)}">
+        <select id="fb"><option value="">All businesses</option>${bizOpts}</select>
+        <select id="fs"><option value="">Any status</option>${['pending','confirmed','completed','cancelled','no_show'].map(s => `<option ${F.status===s?'selected':''} value="${s}">${s.replace('_',' ')}</option>`).join('')}</select>
+        <select id="ft"><option value="">Guests, accounts & walk-ins</option>${Object.entries(TYPE_LABEL).map(([k,l]) => `<option ${F.type===k?'selected':''} value="${k}">${l}</option>`).join('')}</select>
+      </div>
+      <div class="filters">
+        <div class="chips">${[['all','All dates'],['today','Today'],['upcoming','Upcoming'],['past','Past']].map(([k,l]) => `<button class="chip ${F.when===k?'on':''}" data-when="${k}">${l}</button>`).join('')}</div>
+        <label class="muted" style="font-size:13px;">From <input type="date" id="ffrom" value="${esc(F.from)}"></label>
+        <label class="muted" style="font-size:13px;">To <input type="date" id="fto" value="${esc(F.to)}"></label>
+        <span class="grow"></span>
+        <button class="btn-sm" id="exportB">Export CSV</button>
+      </div>
+      <div id="bt"></div>`;
+    const draw = () => {
+      const rows = sorted(filteredBookings(), {
+        date: b => (b.booking_date || '') + (b.booking_time || ''), customer: b => (b.customer_name || '').toLowerCase(),
+        business: b => (b.business_name || '').toLowerCase(), status: b => b.status, booked: b => b.created_at || ''
+      });
+      const box = document.getElementById('bt');
+      if (!rows.length){ box.innerHTML = `<div class="empty">No bookings match these filters.</div>`; return; }
+      box.innerHTML = `<div class="table-wrap"><table>
+        <thead>${headerRow([['date','Appointment'],['customer','Customer'],['','Phone'],['','Email'],['business','Business'],['','Service'],['status','Status'],['','Type'],['booked','Booked at']])}</thead>
+        <tbody>${rows.map(b => { const wa = waLink(b.phone_normalized); const t = bookingType(b); return `<tr>
+          <td class="nowrap"><b>${esc(fmtDate(b.booking_date))}</b><div class="muted">${esc(String(b.booking_time || '').slice(0,5))}</div></td>
+          <td><span class="name">${esc(b.customer_name)}</span></td>
+          <td class="nowrap">${wa ? `<a class="wa" href="${wa}" target="_blank" rel="noopener">${esc(prettyPhone(b.phone_normalized))}</a>` : '<span class="muted">—</span>'}</td>
+          <td>${b.customer_email ? `<a href="mailto:${esc(b.customer_email)}">${esc(b.customer_email)}</a>` : '<span class="muted">—</span>'}</td>
+          <td>${esc(b.business_name || '')}</td>
+          <td>${esc(b.service_name || '')}${b.service_price != null ? `<div class="muted">${money(b.service_price)}</div>` : ''}</td>
+          <td><span class="pill ${esc(b.status)}">${esc(String(b.status || '').replace('_',' '))}</span></td>
+          <td><span class="tag ${t==='account'?'acc':t==='walkin'?'walk':''}">${TYPE_LABEL[t]}</span></td>
+          <td class="nowrap muted">${esc(fmtStamp(b.created_at))}</td></tr>`; }).join('')}</tbody></table></div>
+        <div class="foot"><span>${rows.length} of ${DATA.bookings.length} bookings</span><span>Times are Nigeria time</span></div>`;
+      wireSort(box, draw);
+    };
+    const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
+    on('q', 'input', e => { F.q = e.target.value; draw(); });
+    on('fb', 'change', e => { F.business = e.target.value; draw(); });
+    on('fs', 'change', e => { F.status = e.target.value; draw(); });
+    on('ft', 'change', e => { F.type = e.target.value; draw(); });
+    on('ffrom', 'change', e => { F.from = e.target.value; draw(); });
+    on('fto', 'change', e => { F.to = e.target.value; draw(); });
+    panel.querySelectorAll('[data-when]').forEach(c => c.onclick = () => { F.when = c.dataset.when; panel.querySelectorAll('[data-when]').forEach(x => x.classList.toggle('on', x === c)); draw(); });
+    on('exportB', 'click', () => csv([
+      ['Appointment date','Time','Customer','Phone','Email','Business','Service','Price','Status','Type','Amount paid','Booked at'],
+      ...filteredBookings().map(b => [b.booking_date, String(b.booking_time||'').slice(0,5), b.customer_name, b.phone_normalized || '', b.customer_email || '', b.business_name, b.service_name, b.service_price, b.status, TYPE_LABEL[bookingType(b)], b.amount_paid || '', b.created_at || ''])
+    ], `growthive-bookings-${lagosToday()}.csv`));
+    draw();
+  }
+
+  function renderCustomers(all){
+    const panel = document.getElementById('panel');
+    let q = '';
+    panel.innerHTML = `
+      <div class="filters">
+        <input type="search" id="cq" placeholder="Search name, phone or email">
+        <span class="grow"></span>
+        <button class="btn-sm" id="exportC">Export CSV</button>
+      </div><div id="ct"></div>`;
+    const list = () => {
+      const s = q.trim().toLowerCase(), d = s.replace(/\D/g,'').replace(/^0/,'');
+      return all.filter(c => !s || [c.name, c.email].join(' ').toLowerCase().includes(s) || (d.length >= 4 && c.phone.replace(/\D/g,'').includes(d)));
+    };
+    const draw = () => {
+      const rows = sorted(list(), { name: c => c.name.toLowerCase(), bookings: c => c.bookings, last: c => c.last || '', spent: c => c.spent, first: c => c.first || '' });
+      const box = document.getElementById('ct');
+      if (!rows.length){ box.innerHTML = `<div class="empty">No customers found.</div>`; return; }
+      box.innerHTML = `<div class="table-wrap"><table>
+        <thead>${headerRow([['name','Customer'],['','Phone'],['','Email'],['','Businesses'],['bookings','Bookings','num'],['spent','Paid','num'],['first','First visit'],['last','Last / next visit'],['','Account']])}</thead>
+        <tbody>${rows.map(c => { const wa = waLink(c.phone); return `<tr>
+          <td><span class="name">${esc(c.name)}</span></td>
+          <td class="nowrap">${wa ? `<a class="wa" href="${wa}" target="_blank" rel="noopener">${esc(prettyPhone(c.phone))}</a>` : esc(c.phone)}</td>
+          <td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '<span class="muted">—</span>'}</td>
+          <td>${esc([...c.businesses].join(', '))}</td>
+          <td class="num">${c.bookings}${c.cancelled ? `<div class="muted">${c.cancelled} cancelled</div>` : ''}</td>
+          <td class="num">${c.spent ? money(c.spent) : '<span class="muted">—</span>'}</td>
+          <td class="nowrap">${esc(fmtDate(c.first))}</td>
+          <td class="nowrap">${esc(fmtDate(c.last))}</td>
+          <td>${c.account ? '<span class="tag acc">Account</span>' : '<span class="tag">Guest</span>'}</td></tr>`; }).join('')}</tbody></table></div>
+        <div class="foot"><span>${rows.length} customers</span><span>One row per phone number</span></div>`;
+      wireSort(box, draw);
+    };
+    document.getElementById('cq').addEventListener('input', e => { q = e.target.value; draw(); });
+    document.getElementById('exportC').onclick = () => csv([
+      ['Name','Phone','Email','Businesses','Bookings','Cancelled','Paid (NGN)','First visit','Last visit','Has account'],
+      ...list().map(c => [c.name, c.phone, c.email, [...c.businesses].join('; '), c.bookings, c.cancelled, c.spent, c.first, c.last, c.account ? 'Yes' : 'No'])
+    ], `growthive-customers-${lagosToday()}.csv`);
+    draw();
+  }
+
+  function renderBusinesses(){
+    const panel = document.getElementById('panel');
+    const base = location.href.replace(/admin\.html.*$/, '');
+    const draw = () => {
+      const rows = sorted(DATA.businesses, { name: b => (b.business_name||'').toLowerCase(), bookings: b => b.booking_count, created: b => b.created_at || '' });
+      if (!rows.length){ panel.innerHTML = `<div class="empty">No businesses yet.</div>`; return; }
+      panel.innerHTML = `<div class="table-wrap"><table>
+        <thead>${headerRow([['name','Business'],['','Category'],['','Owner email'],['','WhatsApp'],['','Services','num'],['bookings','Bookings','num'],['','Approval'],['created','Joined'],['','Booking page']])}</thead>
+        <tbody>${rows.map(b => { const wa = waLink(b.whatsapp); return `<tr>
+          <td><span class="name">${esc(b.business_name)}</span></td>
+          <td>${esc(b.category || '')}</td>
+          <td>${b.owner_email ? `<a href="mailto:${esc(b.owner_email)}">${esc(b.owner_email)}</a>` : '<span class="muted">—</span>'}</td>
+          <td class="nowrap">${wa ? `<a class="wa" href="${wa}" target="_blank" rel="noopener">${esc(b.whatsapp)}</a>` : '<span class="muted">—</span>'}</td>
+          <td class="num">${b.service_count}</td>
+          <td class="num">${b.booking_count}</td>
+          <td>${b.booking_approval === 'manual' ? 'Manual' : 'Automatic'}</td>
+          <td class="nowrap">${esc(fmtDate(b.created_at))}</td>
+          <td>${b.slug ? `<a href="${esc(base + 'book.html?b=' + encodeURIComponent(b.slug))}" target="_blank" rel="noopener">Open</a>` : ''}</td></tr>`; }).join('')}</tbody></table></div>
+        <div class="foot"><span>${rows.length} businesses</span></div>`;
+      wireSort(panel, draw);
+    };
+    draw();
+  }
+
+  function renderAccounts(){
+    const panel = document.getElementById('panel');
+    const draw = () => {
+      const rows = sorted(DATA.accounts, { name: a => (a.full_name||'').toLowerCase(), created: a => a.created_at || '' });
+      if (!rows.length){ panel.innerHTML = `<div class="empty">No customer accounts yet. Customers can book without one.</div>`; return; }
+      panel.innerHTML = `<div class="table-wrap"><table>
+        <thead>${headerRow([['name','Name'],['','Phone'],['','Email'],['created','Created']])}</thead>
+        <tbody>${rows.map(a => { const wa = waLink(a.phone_normalized); return `<tr>
+          <td><span class="name">${esc(a.full_name)}</span></td>
+          <td class="nowrap">${wa ? `<a class="wa" href="${wa}" target="_blank" rel="noopener">${esc(prettyPhone(a.phone_normalized))}</a>` : esc(a.phone)}</td>
+          <td>${a.email ? `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>` : '<span class="muted">—</span>'}</td>
+          <td class="nowrap">${esc(fmtDate(a.created_at))}</td></tr>`; }).join('')}</tbody></table></div>
+        <div class="foot"><span>${rows.length} accounts</span><span>Customers who chose to create an account</span></div>`;
+      wireSort(panel, draw);
+    };
+    draw();
+  }
+
+  document.getElementById('refreshBtn').onclick = load;
+  document.getElementById('logoutBtn').onclick = async () => { await sb.auth.signOut(); showLogin(); };
+  start();
+</script>
+</body>
+</html>

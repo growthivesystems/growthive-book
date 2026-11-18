@@ -305,6 +305,7 @@
 
       <div class="page-tabs">
         <button class="page-tab-btn ${currentPageTab==='bookings'?'active':''}" data-pagetab="bookings">Bookings</button>
+        <button class="page-tab-btn ${currentPageTab==='customers'?'active':''}" data-pagetab="customers">Customers</button>
         <button class="page-tab-btn ${currentPageTab==='manage'?'active':''}" data-pagetab="manage">Manage business</button>
       </div>
 
@@ -328,9 +329,82 @@
 
     if (currentPageTab === 'bookings'){
       renderBookingsSection(todayStr);
+    } else if (currentPageTab === 'customers'){
+      renderCustomersSection();
     } else {
       renderManageSection();
     }
+  }
+
+  /* ---------- Customers: one row per phone number, from every booking ---------- */
+  function normPhone(p){
+    const raw = String(p || '').trim();
+    let d = raw.replace(/\D/g, '');
+    if (!d || raw === '-') return '';
+    if (raw.startsWith('+')) return '+' + d;
+    if (d.startsWith('00')) return '+' + d.slice(2);
+    if (d.startsWith('234') && d.length >= 12) return '+' + d;
+    if (d.startsWith('0')) return '+234' + d.slice(1);
+    return '+234' + d;
+  }
+  function prettyPh(p){ const d = String(p || '').replace(/\D/g, ''); return d.startsWith('234') && d.length === 13 ? `+234 ${d.slice(3,6)} ${d.slice(6,9)} ${d.slice(9)}` : p; }
+  function buildCustomers(){
+    const map = new Map();
+    allBookings.forEach(b => {
+      const key = normPhone(b.customer_phone);
+      if (!key) return;
+      let c = map.get(key);
+      if (!c){ c = { phone: key, name: '', email: '', visits: 0, cancelled: 0, spent: 0, last: '', first: '' }; map.set(key, c); }
+      c.visits++;
+      if (b.status === 'cancelled') c.cancelled++;
+      if (b.status === 'completed') c.spent += Number(b.amount_paid || 0);
+      if (!c.last || b.booking_date >= c.last){ c.last = b.booking_date; if (b.customer_name) c.name = b.customer_name; if (b.customer_email) c.email = b.customer_email; }
+      if (!c.email && b.customer_email) c.email = b.customer_email;
+      if (!c.first || b.booking_date < c.first) c.first = b.booking_date;
+    });
+    return [...map.values()].sort((a, b) => (b.last || '').localeCompare(a.last || ''));
+  }
+  function renderCustomersSection(){
+    const content = document.getElementById('pageContent');
+    const all = buildCustomers();
+    content.innerHTML = `
+      <div class="card">
+        <div class="tabs-row" style="gap:10px;flex-wrap:wrap;">
+          <input type="search" id="custSearch" placeholder="Search name, phone or email" style="flex:1;min-width:0;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font:inherit;font-size:14px;">
+          <button class="btn btn-ghost" id="custExport" style="padding:9px 16px;">Export</button>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin:4px 0 12px;">${all.length} customer${all.length === 1 ? '' : 's'}, counted by phone number. Walk-ins without a phone aren't listed.</p>
+        <div id="custList"></div>
+      </div>`;
+    const draw = () => {
+      const q = document.getElementById('custSearch').value.trim().toLowerCase();
+      const qd = q.replace(/\D/g, '').replace(/^0/, '');
+      const rows = all.filter(c => !q || (c.name + ' ' + c.email).toLowerCase().includes(q) || (qd.length >= 4 && c.phone.replace(/\D/g,'').includes(qd)));
+      document.getElementById('custList').innerHTML = rows.length ? rows.map(c => {
+        const wa = waNumber(c.phone);
+        return `<div class="booking-row">
+          <div style="min-width:0;">
+            <div class="booking-info"><div class="svc">${escapeHtml(c.name || 'Customer')}</div></div>
+            <div class="booking-meta"><a href="https://wa.me/${escapeAttr(wa)}" target="_blank" rel="noopener" style="color:#0F7A3D;font-weight:500;">${escapeHtml(prettyPh(c.phone))}</a>${c.email ? ' · <a href="mailto:' + escapeAttr(c.email) + '">' + escapeHtml(c.email) + '</a>' : ''}</div>
+            <div class="booking-meta">Last visit ${escapeHtml(c.last)}${c.first && c.first !== c.last ? ' · first ' + escapeHtml(c.first) : ''}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:700;color:var(--navy);">${c.visits} booking${c.visits === 1 ? '' : 's'}</div>
+            ${c.spent ? `<div class="booking-meta">Paid ${money(c.spent)}</div>` : ''}
+            ${c.cancelled ? `<div class="booking-meta">${c.cancelled} cancelled</div>` : ''}
+          </div>
+        </div>`;
+      }).join('') : `<div class="empty-state">No customers yet. They appear here as soon as someone books.</div>`;
+    };
+    document.getElementById('custSearch').addEventListener('input', draw);
+    document.getElementById('custExport').addEventListener('click', () => {
+      const rows = [['Name','Phone','Email','Bookings','Cancelled','Paid','First visit','Last visit'], ...all.map(c => [c.name, c.phone, c.email, c.visits, c.cancelled, c.spent, c.first, c.last])];
+      const text = rows.map(r => r.map(v => { const x = v == null ? '' : String(v); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['\ufeff' + text], { type: 'text/csv;charset=utf-8' }));
+      a.download = (business.slug || 'customers') + '-customers.csv'; a.click();
+    });
+    draw();
   }
 
   function renderBookingsSection(todayStr){

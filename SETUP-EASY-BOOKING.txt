@@ -1,0 +1,118 @@
+GROWTHIVE BOOK — EASY BOOKING UPDATE
+How to put it live, in this order. About 15 minutes.
+=====================================================
+
+Your Supabase project: growthive book (wjmyyvccpsacqpvrbgch)
+Open SQL files from the "sql" folder in this zip. For each one:
+Supabase > SQL Editor > New query > paste the whole file > Run.
+
+
+STEP 1 — Take the master key out of the email trigger  (sql/book-02-move-email-key.sql)
+-------------------------------------------------------------------------------
+1. Supabase > Project Settings > API Keys > "Legacy API Keys" tab.
+2. Copy the "anon public" key (long, starts with eyJ).
+3. In book-02-move-email-key.sql, replace PASTE_ANON_KEY_HERE with it (keep the quotes).
+4. Run it. You should see: "Email key moved to Vault..."
+
+
+STEP 2 — Database update  (sql/book-03-easy-booking.sql)
+-------------------------------------------------------------------------------
+Before running, check this line near section 7:
+    where lower(email) = lower('davidayogu16@gmail.com')
+It must be the email you log in to Growthive Book with. Change it if not.
+Run it. You should see: "Growthive Book easy booking: database update done"
+Nothing is deleted. All 80 existing bookings and every customer account stay.
+
+
+STEP 3 — Upload the website files
+-------------------------------------------------------------------------------
+In the growthive-book repo on GitHub: Add file > Upload files.
+Drag in everything from this zip, including the "assets" and "sql" folders. Commit.
+
+New files:      admin.html, manage-booking.html, customer-reset-password.html,
+                assets/js/phone.js, sql/ folder, this guide
+Changed files:  book.html, business-hub.html, my-bookings.html,
+                customer-login.html, customer-register.html, sitemap.xml
+
+Then DELETE these old Growthive Monitor files from the Book repo
+(open each file on GitHub > ... menu > Delete file). They belong to Monitor,
+are broken here, and made Book install on phones as "GrowthIve Monitor":
+    buy-list.html  calendar.html  contact.html  dashboard.html  debts.html
+    expenses.html  faq.html  health-score.html  inventory.html  purchases.html
+    reports.html  returning.html  sales.html  sellers.html  services.html
+    settings.html  terms.html  welcome.html  manifest.json  sw.js
+(Your real Monitor site is in its own repo and is not affected.)
+
+
+STEP 4 — Test on your phone (wait 1–2 minutes after uploading)
+-------------------------------------------------------------------------------
+[ ] Open a business booking link (book.html?b=...). Pick a service, date, time.
+[ ] Enter only a name and phone number, e.g. 9019875292. Under the box it
+    should say "Saved as +234 901 987 5292". Press Confirm booking.
+[ ] You see "You're booked!" with "Your booking link". No sign-up asked.
+[ ] Open the booking link: you can see and cancel the booking.
+[ ] Open the same day again: the time you booked is no longer offered.
+[ ] Open .../growthive-book/admin.html and sign in with your Book login.
+    You see every booking, every customer, every business.
+[ ] Business owner dashboard > Customers tab lists their customers.
+
+
+STEP 5 — Close the old back door  (sql/book-04-close-direct-insert.sql)
+-------------------------------------------------------------------------------
+Only after Step 4 works. Run it. Online bookings then only go through the
+checked booking function (no double bookings, no past times, no closed days).
+Owners can still add walk-ins.
+
+
+STEP 6 — Add the booking link to the confirmation email (EmailJS)
+-------------------------------------------------------------------------------
+emailjs.com > Email Templates > template_v14jq04 (customer confirmation).
+Add this somewhere in the message, then Save:
+    View or cancel your booking: {{manage_link}}
+Optional extras you can now use: {{customer_name}} and {{business_name}}.
+
+
+STEP 7 — Retire the old master key (do this at a quiet time)
+-------------------------------------------------------------------------------
+The old service_role key was written in a database function and has been shared
+in a chat, so treat it as exposed. After Step 1 nothing in the website needs it.
+In Supabase > Project Settings > API Keys / JWT Keys, rotate the legacy JWT secret
+(or disable the legacy keys). Notes:
+ - The website uses the new publishable key, so it keeps working.
+ - Business owners will be logged out once and just log in again.
+ - Rotating also changes the anon key. Copy the NEW anon key and run:
+       select vault.update_secret(id, 'NEW_ANON_KEY') from vault.secrets
+       where name = 'book_email_function_key';
+ - Check your send-booking-confirmation edge function still works.
+If any screen looks different from this description, send a screenshot first.
+
+
+WHAT CHANGED FOR CUSTOMERS
+-------------------------------------------------------------------------------
+- Book with name + phone (email optional). No account, password or PIN needed.
+- Phone box starts on Nigeria +234; any country can be picked. 0901..., 901...,
+  234901... and +234 901... are all saved the same way: +2349019875292.
+- Only genuinely free times are shown; past times today are hidden.
+- Every booking gets a private link to view or cancel it, with "Copy link" and
+  "Save to my WhatsApp" buttons. Returning guests get their details filled in.
+- Accounts are optional, for regular customers. Creating one right after booking
+  adds that booking to the account. Forgot password now works (with their PIN).
+- "My bookings" now shows bookings, and Cancel really cancels.
+
+WHAT CHANGED FOR YOU AND BUSINESS OWNERS
+-------------------------------------------------------------------------------
+- admin.html: every booking across all businesses, with search, filters by
+  business / status / guest-account-walk-in / dates, and CSV export.
+  Customers tab merges the same phone number typed different ways.
+  Also Businesses (with owner emails) and Customer accounts.
+  Only accounts listed in the platform_admins table can open it. To add
+  another admin later, the page itself shows the one line of SQL to run.
+- Business dashboard: new Customers tab (visits, paid, last visit, export).
+- The master key is out of the database function (Step 1 and 7).
+
+Database functions added: normalize_phone, book_taken_slots, create_booking,
+get_booking_by_token, cancel_booking_by_token, customer_my_bookings,
+customer_cancel_booking, customer_claim_booking, customer_logout,
+is_platform_admin, admin_dashboard. Updated: customer_signup, customer_login,
+customer_session_check (now returns email), customer_verify_pin,
+customer_reset_password, customer_update_profile.

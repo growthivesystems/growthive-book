@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/phone.js"></script>
 <link rel="stylesheet" href="assets/css/styles.css">
 <style>
   .page-wrap{max-width:640px;margin:0 auto;padding:40px 16px 80px;}
@@ -181,7 +182,7 @@
     document.getElementById('profileAvatar').textContent = customer.full_name.charAt(0).toUpperCase();
     document.getElementById('profileName').value = customer.full_name;
     document.getElementById('profileEmail').value = customer.email || '';
-    document.getElementById('profilePhone').value = customer.phone;
+    document.getElementById('profilePhone').value = (window.GBPhone ? GBPhone.pretty(customer.phone || '') : customer.phone);
 
     await loadBookings();
   }
@@ -231,23 +232,17 @@
   });
 
   async function loadBookings(){
-    const { data, error } = await sb
-      .from('bookings')
-      .select(`
-        id, booking_date, booking_time, status,
-        businesses ( business_name, whatsapp, slug ),
-        services ( name )
-      `)
-      .eq('customer_id', customer.customer_id)
-      .order('booking_date', { ascending: true })
-      .order('booking_time', { ascending: true });
-
+    const { data, error } = await sb.rpc('customer_my_bookings', { p_token: token });
     if (error){
+      if (/session/i.test(error.message)){
+        try { localStorage.removeItem('customer_session_token'); } catch(e){}
+        window.location.href = 'customer-login.html?return=my-bookings.html';
+        return;
+      }
       document.getElementById('bookingsList').innerHTML =
         `<div class="loading-state">Something went wrong loading your bookings. Please refresh and try again.</div>`;
       return;
     }
-
     allBookings = data || [];
     render();
   }
@@ -281,13 +276,13 @@
     }
 
     list.innerHTML = filtered.map(b => {
-      const biz = b.businesses || {};
-      const svc = b.services || {};
+      const biz = { business_name: b.business_name, whatsapp: b.business_whatsapp, slug: b.business_slug };
+      const svc = { name: b.service };
       const waLink = biz.whatsapp
         ? `https://wa.me/${biz.whatsapp.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(`Hi! Following up on my booking for ${svc.name || 'my appointment'} on ${b.booking_date} at ${b.booking_time?.slice(0,5)}.`)}`
         : null;
 
-      const canCancel = activeTab === 'upcoming' && ['pending','confirmed'].includes(b.status);
+      const canCancel = activeTab === 'upcoming' && b.can_cancel;
 
       return `
         <div class="booking-card">
@@ -310,22 +305,16 @@
 
   async function cancelBooking(bookingId){
     if (!confirm('Cancel this booking? This can\'t be undone.')) return;
-
-    const { error } = await sb
-      .from('bookings')
-      .update({ status: 'cancelled' })
-      .eq('id', bookingId)
-      .eq('customer_id', customer.customer_id);
-
+    const { error } = await sb.rpc('customer_cancel_booking', { p_token: token, p_booking_id: bookingId });
     if (error){
-      alert('Could not cancel this booking: ' + error.message);
+      alert(error.message);
       return;
     }
-
     await loadBookings();
   }
 
-  document.getElementById('logoutBtn').addEventListener('click', () => {
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try { await sb.rpc('customer_logout', { p_token: token }); } catch(e){}
     localStorage.removeItem('customer_session_token');
     window.location.href = 'index.html';
   });

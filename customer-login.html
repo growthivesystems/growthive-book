@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/phone.js"></script>
 <link rel="stylesheet" href="assets/css/styles.css">
 <style>
   .auth-layout{display:grid;place-items:center;min-height:calc(100vh - 73px);background:var(--bg-light);padding:40px 16px;}
@@ -25,6 +26,7 @@
   .forgot-link{display:block;text-align:right;font-size:13.5px;color:var(--royal);font-weight:500;margin:-10px 0 24px;}
   .switch-link{text-align:center;margin-top:22px;font-size:14px;color:var(--text-light);}
   .switch-link a{color:var(--royal);font-weight:600;}
+  @media (max-width:520px){ .form-card{padding:28px 20px;} nav{padding:14px 16px;} .nav-actions .small{display:none;} }
 </style>
 </head>
 <body>
@@ -43,15 +45,15 @@
   <div class="form-card">
     <div class="customer-badge">👤 Customer login</div>
     <h1>Welcome back</h1>
-    <p>Log in to see your upcoming and past bookings.</p>
+    <p>Log in to see your upcoming and past bookings. You never need an account to book.</p>
 
     <div class="alert alert-error" id="errorAlert"></div>
 
     <form id="loginForm" novalidate>
       <div class="field" id="phoneField">
         <label for="phone">Phone number</label>
-        <input type="tel" id="phone" placeholder="080..." autocomplete="tel">
-        <div class="field-error">Enter your phone number.</div>
+        <div id="phoneBox"></div>
+        <div class="field-error">Enter the phone number you signed up with.</div>
       </div>
 
       <div class="field" id="passwordField">
@@ -87,18 +89,26 @@
   // If we came here from book.html via a "log in first" link, remember where to
   // send the customer back to once they're signed in.
   const urlParams = new URLSearchParams(window.location.search);
-  const returnTo = urlParams.get('return');
+  // Only allow returning to a page on this site
+  const rawReturn = urlParams.get('return');
+  const returnTo = rawReturn && new URL(rawReturn, location.href).origin === location.origin ? rawReturn : null;
+  let savedPhone = '';
+  try { savedPhone = (JSON.parse(localStorage.getItem('gb_guest') || 'null') || {}).phone || ''; } catch(e){}
+  GBPhone.mount('phoneBox', { value: savedPhone, inputId: 'phone' });
+  if (returnTo){
+    document.querySelectorAll('a[href="customer-register.html"]').forEach(a => a.href = 'customer-register.html?return=' + encodeURIComponent(returnTo));
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     clearFieldErrors();
     errorAlert.classList.remove('show');
 
-    const phone = document.getElementById('phone').value.trim();
+    const phone = GBPhone.read('phoneBox');
     const password = document.getElementById('password').value;
 
     let hasError = false;
-    if(!phone){ document.getElementById('phoneField').classList.add('has-error'); hasError = true; }
+    if(!GBPhone.isValid('phoneBox')){ document.getElementById('phoneField').classList.add('has-error'); hasError = true; }
     if(!password){ document.getElementById('passwordField').classList.add('has-error'); hasError = true; }
     if(hasError) return;
 
@@ -118,7 +128,7 @@
       return;
     }
 
-    localStorage.setItem('customer_session_token', token);
+    try { localStorage.setItem('customer_session_token', token); } catch(e){}
     window.location.href = returnTo || 'my-bookings.html';
   });
 </script>

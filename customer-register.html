@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/phone.js"></script>
 <link rel="stylesheet" href="assets/css/styles.css">
 <style>
   .auth-layout{display:grid;place-items:center;min-height:calc(100vh - 73px);background:var(--bg-light);padding:40px 16px;}
@@ -20,6 +21,7 @@
   .switch-link{text-align:center;margin-top:22px;font-size:14px;color:var(--text-light);}
   .switch-link a{color:var(--royal);font-weight:600;}
   .field-hint{font-size:12.5px;color:var(--text-light);margin-top:6px;}
+  @media (max-width:520px){ .form-card{padding:28px 20px;} nav{padding:14px 16px;} .nav-actions .small{display:none;} }
 </style>
 </head>
 <body>
@@ -37,7 +39,7 @@
 <div class="auth-layout">
   <div class="form-card">
     <h1>Create your account</h1>
-    <p>Book with any business, and keep track of every appointment in one place.</p>
+    <p>Optional, and free. See all your bookings in one place. You can always book without an account.</p>
 
     <div class="alert alert-error" id="errorAlert"></div>
 
@@ -50,16 +52,16 @@
 
       <div class="field" id="phoneField">
         <label for="phone">Phone number</label>
-        <input type="tel" id="phone" placeholder="080..." autocomplete="tel">
-        <div class="field-hint">You'll log in with this number — no email needed.</div>
+        <div id="phoneBox"></div>
+        <div class="field-hint">You'll log in with this number. Use the same number you book with.</div>
         <div class="field-error">Enter a valid phone number.</div>
       </div>
 
       <div class="field" id="emailField">
-        <label for="email">Email</label>
+        <label for="email">Email (optional)</label>
         <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
         <div class="field-hint">We'll only use this to send your booking confirmation and reminders.</div>
-        <div class="field-error">Enter a valid email address.</div>
+        <div class="field-error">That email doesn't look right. You can also leave it empty.</div>
       </div>
 
       <div class="field" id="passwordField">
@@ -91,7 +93,18 @@
   // If we arrived here from book.html (via "Sign up to complete your booking"),
   // remember where to send the customer back to once they're signed in.
   const urlParams = new URLSearchParams(window.location.search);
-  const returnTo = urlParams.get('return');
+  const rawReturn = urlParams.get('return');
+  const returnTo = rawReturn && new URL(rawReturn, location.href).origin === location.origin ? rawReturn : null;
+  const claimToken = urlParams.get('claim');   // booking made just before, to attach to the new account
+
+  // Fill in what we already know from their last booking on this phone
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('gb_guest') || 'null'); } catch(e){}
+  GBPhone.mount('phoneBox', { value: saved ? saved.phone : '', inputId: 'phone' });
+  if (saved){
+    if (saved.name) document.getElementById('fullName').value = saved.name;
+    if (saved.email) document.getElementById('email').value = saved.email;
+  }
 
   const loginUrl = 'customer-login.html' + (returnTo ? '?return=' + encodeURIComponent(returnTo) : '');
   document.getElementById('loginNavLink').href = loginUrl;
@@ -111,17 +124,17 @@
     errorAlert.classList.remove('show');
 
     const fullName = document.getElementById('fullName').value.trim();
-    const phone = document.getElementById('phone').value.trim();
+    const phone = GBPhone.read('phoneBox');
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
     const pin = document.getElementById('pin').value.trim();
 
     let hasError = false;
     if(!fullName){ document.getElementById('nameField').classList.add('has-error'); hasError = true; }
-    if(!phone || phone.length < 7){ document.getElementById('phoneField').classList.add('has-error'); hasError = true; }
-    if(!email || !email.includes('@')){ document.getElementById('emailField').classList.add('has-error'); hasError = true; }
+    if(!GBPhone.isValid('phoneBox')){ document.getElementById('phoneField').classList.add('has-error'); hasError = true; }
+    if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ document.getElementById('emailField').classList.add('has-error'); hasError = true; }
     if(!password || password.length < 6){ document.getElementById('passwordField').classList.add('has-error'); hasError = true; }
-    if(!pin || pin.length < 4){ document.getElementById('pinField').classList.add('has-error'); hasError = true; }
+    if(!/^\d{4,}$/.test(pin)){ document.getElementById('pinField').classList.add('has-error'); hasError = true; }
     if(hasError) return;
 
     submitBtn.disabled = true;
@@ -132,7 +145,7 @@
       p_phone: phone,
       p_password: password,
       p_pin: pin,
-      p_email: email
+      p_email: email || null
     });
 
     if(error){
@@ -157,7 +170,10 @@
       return;
     }
 
-    localStorage.setItem('customer_session_token', token);
+    try { localStorage.setItem('customer_session_token', token); } catch(e){}
+    if (claimToken){
+      await sb.rpc('customer_claim_booking', { p_token: token, p_manage_token: claimToken });
+    }
     window.location.href = returnTo || 'my-bookings.html';
   });
 </script>

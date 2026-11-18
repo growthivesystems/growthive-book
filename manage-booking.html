@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Your Booking — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  body{background:var(--bg-light);}
+  .shell{max-width:520px;margin:0 auto;padding:36px 16px 60px;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:var(--shadow-sm);}
+  .biz{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+  .when{font-size:15px;color:var(--text-dark);font-weight:600;margin:14px 0 4px;}
+  .who{font-size:14px;color:var(--text-light);}
+  .items{background:#EFF4FF;border-radius:12px;padding:6px 16px;margin:18px 0;}
+  .item{display:flex;justify-content:space-between;gap:12px;padding:10px 0;font-size:14.5px;border-bottom:1px solid rgba(10,31,68,.06);}
+  .item:last-child{border-bottom:none;}
+  .item .t{color:var(--text-light);white-space:nowrap;}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;text-transform:capitalize;}
+  .pill.confirmed{background:#ECFDF5;color:#047857;}
+  .pill.pending{background:#FFFBEB;color:#B45309;}
+  .pill.cancelled{background:#FEF2F2;color:#B91C1C;}
+  .pill.completed{background:#EFF4FF;color:#1D4ED8;}
+  .pill.no_show{background:#F3F4F6;color:#6B7280;}
+  .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;}
+  .actions .btn{padding:12px 18px;font-size:15px;}
+  .btn-wa{background:#E8F8EE;color:#0F7A3D;}
+  .btn-danger{background:#fff;color:#B91C1C;border:1px solid rgba(239,68,68,.35);}
+  .btn-danger:hover{background:#FEF2F2;}
+  .note{font-size:13px;color:var(--text-light);margin-top:18px;line-height:1.55;}
+  .state{text-align:center;color:var(--text-light);padding:30px 10px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--navy);margin-bottom:22px;}
+</style>
+</head>
+<body>
+<div class="shell">
+  <a href="index.html" class="brand"><span class="logo-mark">G</span>Growthive Book</a>
+  <div class="card" id="root"><div class="state">Loading your booking…</div></div>
+</div>
+
+<script>
+  const sb = supabaseClient;
+  const root = document.getElementById('root');
+  const token = new URLSearchParams(location.search).get('t');
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  function esc(v){ const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+  function prettyDate(iso){
+    try { return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
+    catch(e){ return iso; }
+  }
+
+  async function load(){
+    if (!token || !UUID.test(token)){
+      root.innerHTML = `<div class="state">This booking link isn't complete. Please open the full link from your confirmation message.</div>`;
+      return;
+    }
+    const { data, error } = await sb.rpc('get_booking_by_token', { p_token: token });
+    if (error){
+      root.innerHTML = `<div class="state">We couldn't load this booking. Please check your connection and try again.</div>`;
+      return;
+    }
+    if (!data){
+      root.innerHTML = `<div class="state">We couldn't find this booking. The link may be incomplete.</div>`;
+      return;
+    }
+    render(data);
+  }
+
+  function render(b){
+    const statuses = [...new Set(b.items.map(i => i.status))];
+    const overall = statuses.length === 1 ? statuses[0] : 'confirmed';
+    const wa = b.business_whatsapp
+      ? `https://wa.me/${b.business_whatsapp.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(`Hi! It's ${b.customer_name}, about my booking on ${prettyDate(b.date)}.`)}`
+      : null;
+    const rebook = b.business_slug ? `book.html?b=${encodeURIComponent(b.business_slug)}` : null;
+
+    root.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div class="biz">${esc(b.business_name)}</div>
+        <span class="pill ${esc(overall)}">${esc(String(overall).replace('_',' '))}</span>
+      </div>
+      <div class="when">${esc(prettyDate(b.date))}</div>
+      <div class="who">Booked for ${esc(b.customer_name)}</div>
+      <div class="items">
+        ${b.items.map(i => `<div class="item"><span>${esc(i.service || 'Service')}</span><span class="t">${esc(i.time)}</span></div>`).join('')}
+      </div>
+      <div class="alert alert-error" id="err"></div>
+      <div class="actions">
+        ${wa ? `<a class="btn btn-wa" href="${wa}" target="_blank" rel="noopener">Message on WhatsApp</a>` : ''}
+        ${b.can_cancel ? `<button class="btn btn-danger" id="cancelBtn">Cancel booking</button>` : ''}
+        ${rebook ? `<a class="btn btn-ghost" href="${rebook}">Book again</a>` : ''}
+      </div>
+      <p class="note">${b.can_cancel
+        ? 'Need a different time? Cancel here and book again, or message the business to move it.'
+        : overall === 'cancelled' ? 'This booking has been cancelled.' : 'To change this booking, please message the business.'}
+        Keep this link private. Anyone with it can view or cancel this booking.</p>`;
+
+    const btn = document.getElementById('cancelBtn');
+    if (btn) btn.addEventListener('click', async () => {
+      if (!confirm('Cancel this booking? This can\'t be undone.')) return;
+      btn.disabled = true; btn.textContent = 'Cancelling…';
+      const { error } = await sb.rpc('cancel_booking_by_token', { p_token: token });
+      if (error){
+        const e = document.getElementById('err'); e.textContent = error.message; e.classList.add('show');
+        btn.disabled = false; btn.textContent = 'Cancel booking';
+        return;
+      }
+      load();
+    });
+  }
+
+  load();
+</script>
+</body>
+</html>
