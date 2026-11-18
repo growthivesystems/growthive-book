@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browse businesses — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  .page-wrap{max-width:760px;margin:0 auto;padding:40px 16px 80px;}
+  .page-header h1{font-size:26px;margin:0 0 6px;}
+  .page-header p{color:var(--text-light);margin:0 0 24px;}
+
+  .search-box{margin-bottom:24px;}
+  .search-box input{
+    width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:10px;
+    font-size:14.5px;font-family:inherit;
+  }
+  .search-box input:focus{outline:none;border-color:var(--royal);}
+
+  .biz-grid{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media(min-width:600px){.biz-grid{grid-template-columns:1fr 1fr;}}
+
+  .biz-card{
+    background:var(--white);border:1px solid var(--border);border-radius:16px;
+    padding:20px;text-decoration:none;color:inherit;transition:box-shadow .15s, border-color .15s;
+  }
+  .biz-card:hover{border-color:var(--royal);box-shadow:0 4px 16px rgba(10,31,68,0.06);}
+  .biz-name{font-weight:700;font-size:16px;color:var(--navy);}
+  .biz-category{color:var(--royal);font-size:13px;font-weight:600;margin-top:2px;}
+  .biz-meta{color:var(--text-light);font-size:13px;margin-top:10px;}
+
+  .empty-state, .loading-state{text-align:center;padding:60px 20px;color:var(--text-light);}
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="index.html" class="logo"><div class="logo-mark">G</div>Growthive Book</a>
+    <div class="nav-actions">
+      <a href="my-bookings.html" class="btn btn-ghost">My bookings</a>
+    </div>
+  </nav>
+</header>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <h1>Find a business</h1>
+    <p>Browse everyone currently taking bookings on Growthive Book.</p>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Search by name or category...">
+  </div>
+
+  <div id="bizGrid">
+    <div class="loading-state">Loading businesses...</div>
+  </div>
+</div>
+
+<script>
+  const sb = supabaseClient;
+  let allBusinesses = [];
+
+  async function init(){
+    const { data, error } = await sb
+      .from('businesses')
+      .select('business_name, slug, category, city, country')
+      .order('business_name');
+
+    if (error){
+      document.getElementById('bizGrid').innerHTML =
+        `<div class="loading-state">Something went wrong loading businesses. Please refresh and try again.</div>`;
+      return;
+    }
+
+    allBusinesses = data || [];
+    render(allBusinesses);
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      const filtered = allBusinesses.filter(b =>
+        (b.business_name || '').toLowerCase().includes(q) ||
+        (b.category || '').toLowerCase().includes(q)
+      );
+      render(filtered);
+    });
+  }
+
+  function render(list){
+    const grid = document.getElementById('bizGrid');
+
+    if (list.length === 0){
+      grid.innerHTML = `<div class="empty-state">No businesses match that search yet.</div>`;
+      return;
+    }
+
+    grid.innerHTML = `<div class="biz-grid">${list.map(b => {
+      const location = [b.city, b.country].filter(Boolean).join(', ');
+      return `
+        <a class="biz-card" href="book.html?b=${encodeURIComponent(b.slug)}">
+          <div class="biz-name">${escapeHtml(b.business_name)}</div>
+          ${b.category ? `<div class="biz-category">${escapeHtml(b.category)}</div>` : ''}
+          ${location ? `<div class="biz-meta">📍 ${escapeHtml(location)}</div>` : ''}
+        </a>
+      `;
+    }).join('')}</div>`;
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  init();
+</script>
+
+</body>
+</html>

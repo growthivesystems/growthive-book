@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log in — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  .auth-layout{display:grid;place-items:center;min-height:calc(100vh - 73px);background:var(--bg-light);}
+  .form-card{
+    width:100%;max-width:420px;background:var(--white);border:1px solid var(--border);
+    border-radius:20px;padding:44px;box-shadow:var(--shadow-md);
+  }
+  .form-card h1{font-size:28px;margin-bottom:8px;}
+  .form-card > p{margin-bottom:32px;}
+  .forgot-link{display:block;text-align:right;font-size:13.5px;color:var(--royal);font-weight:500;margin:-10px 0 24px;}
+  .forgot-link.is-disabled{color:var(--text-light);pointer-events:none;cursor:default;}
+  .switch-link{text-align:center;margin-top:24px;font-size:14px;color:var(--text-light);}
+  .switch-link a{color:var(--royal);font-weight:600;}
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="index.html" class="logo"><div class="logo-mark">G</div>Growthive Book</a>
+    <div class="nav-actions">
+      <span class="small" style="color:var(--text-light);">New here?</span>
+      <a href="register.html" class="btn btn-ghost">Create account</a>
+    </div>
+  </nav>
+</header>
+
+<div class="auth-layout">
+  <div class="form-card">
+    <h1>Welcome back</h1>
+    <p>Log in to manage your bookings.</p>
+
+    <div class="alert alert-error" id="errorAlert"></div>
+
+    <form id="loginForm" novalidate>
+      <div class="field" id="emailField">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@business.com" autocomplete="email">
+        <div class="field-error">Enter a valid email address.</div>
+      </div>
+
+      <div class="field" id="passwordField">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Your password" autocomplete="current-password">
+        <div class="field-error">Enter your password.</div>
+      </div>
+
+      <a href="#" class="forgot-link" id="forgotLink">Forgot password?</a>
+
+      <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Log in</button>
+    </form>
+
+    <div class="switch-link">Don't have an account? <a href="register.html">Create one free</a></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<script>
+  const form = document.getElementById('loginForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const errorAlert = document.getElementById('errorAlert');
+
+  function showError(msg){
+    errorAlert.textContent = msg;
+    errorAlert.classList.add('show');
+  }
+  function clearFieldErrors(){
+    document.querySelectorAll('.field').forEach(f => f.classList.remove('has-error'));
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFieldErrors();
+    errorAlert.classList.remove('show');
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    let hasError = false;
+    if(!email || !email.includes('@')){
+      document.getElementById('emailField').classList.add('has-error'); hasError = true;
+    }
+    if(!password){
+      document.getElementById('passwordField').classList.add('has-error'); hasError = true;
+    }
+    if(hasError) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Logging in...';
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    if(error){
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Log in';
+      showError(error.message);
+      return;
+    }
+
+    // Check whether this user already has a business set up.
+    // New users (no business row yet) go to the setup wizard;
+    // returning users (business already exists) go to the dashboard.
+    const { data: existingBusiness, error: bizCheckError } = await supabaseClient
+      .from('businesses')
+      .select('id')
+      .eq('owner_id', data.user.id)
+      .maybeSingle();
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Log in';
+
+    if(bizCheckError){
+      showError('Logged in, but could not check your business setup: ' + bizCheckError.message);
+      return;
+    }
+
+    if(existingBusiness){
+      window.location.href = 'business-hub.html';
+    } else {
+      window.location.href = 'business-setup.html';
+    }
+  });
+
+  const forgotLink = document.getElementById('forgotLink');
+  const FORGOT_COOLDOWN_SECONDS = 60;
+  let forgotCooldownActive = false;
+
+  function startForgotCooldown(){
+    forgotCooldownActive = true;
+    forgotLink.classList.add('is-disabled');
+    let remaining = FORGOT_COOLDOWN_SECONDS;
+    forgotLink.textContent = 'Resend in ' + remaining + 's';
+
+    const countdownTimer = setInterval(() => {
+      remaining -= 1;
+      if(remaining <= 0){
+        clearInterval(countdownTimer);
+        forgotCooldownActive = false;
+        forgotLink.classList.remove('is-disabled');
+        forgotLink.textContent = 'Forgot password?';
+      } else {
+        forgotLink.textContent = 'Resend in ' + remaining + 's';
+      }
+    }, 1000);
+  }
+
+  forgotLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if(forgotCooldownActive) return;
+
+    const email = document.getElementById('email').value.trim();
+    if(!email || !email.includes('@')){
+      document.getElementById('emailField').classList.add('has-error');
+      showError('Enter your email above first, then click "Forgot password?" again.');
+      return;
+    }
+
+    startForgotCooldown();
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://growthivesystems.github.io/growthive-book/reset-password.html'
+    });
+    if(error){
+      showError(error.message);
+    } else {
+      errorAlert.classList.remove('show');
+      alert('Password reset link sent to ' + email);
+    }
+  });
+</script>
+
+</body>
+</html>

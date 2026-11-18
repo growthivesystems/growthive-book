@@ -1,0 +1,394 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/monitor/manifest.json">
+<meta name="theme-color" content="#C9A84C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GrowthIve">
+<link rel="apple-touch-icon" href="/monitor/icons/icon-192.png">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/monitor/sw.js');}</script>
+<title>Reports — GrowthIve Monitor</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .report-tab { padding:8px 18px; border-radius:20px; cursor:pointer; font-size:0.85rem; font-weight:500; border:1px solid var(--gold-border); background:transparent; color:var(--muted); transition:var(--transition); font-family:var(--font-body); }
+  .report-tab.active { background:var(--gold); color:var(--dark); border-color:var(--gold); font-weight:600; }
+  canvas { max-height: 280px; }
+  .source-note {
+    font-size:0.75rem; color:var(--muted);
+    padding:6px 12px; background:var(--dark3);
+    border-radius:20px; border:1px solid var(--gold-border);
+    display:inline-block; margin-bottom:16px;
+  }
+</style>
+</head>
+<body>
+<div id="main-navbar"></div>
+<div class="layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="page-title">Reports & Analytics</div>
+    <div class="page-subtitle">Weekly, monthly and quarterly performance insights.</div>
+
+    <!-- Period Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;">
+      <button class="report-tab active" onclick="setPeriod('monthly', this)">Monthly</button>
+      <button class="report-tab" onclick="setPeriod('weekly', this)">Weekly</button>
+      <button class="report-tab" onclick="setPeriod('quarterly', this)">Quarterly</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid-4" id="report-kpis">
+      <div class="card">
+        <div class="card-title">Total Revenue</div>
+        <div class="card-value gold" id="r-pos-sales">₦0.00</div>
+        <div class="card-meta">Combined sales (all sources)</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Confirmed Sales</div>
+        <div class="card-value" style="color:var(--info);" id="r-confirmed-sales">₦0.00</div>
+        <div class="card-meta">Manual daily records</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Expenses</div>
+        <div class="card-value danger" id="r-expenses">₦0.00</div>
+        <div class="card-meta">Logged expenses</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Net Profit / Loss</div>
+        <div class="card-value" id="r-profit">₦0.00</div>
+        <div class="card-meta">Total revenue − expenses</div>
+      </div>
+    </div>
+
+    <!-- Payment breakdown -->
+    <div class="grid-4">
+      <div class="card">
+        <div class="card-title">Cash Sales</div>
+        <div class="card-value success" id="r-cash">₦0.00</div>
+        <div class="card-meta">POS: cash payments</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Transfer Sales</div>
+        <div class="card-value" style="color:var(--info);" id="r-transfer">₦0.00</div>
+        <div class="card-meta">POS: transfer payments</div>
+      </div>
+      <div class="card">
+        <div class="card-title">POS Card Sales</div>
+        <div class="card-value" style="color:var(--gold2);" id="r-pos">₦0.00</div>
+        <div class="card-meta">POS: card payments</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Outstanding Debt</div>
+        <div class="card-value danger" id="r-debt">₦0.00</div>
+        <div class="card-meta">Unpaid balances</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Total Revenue vs Expenses</div>
+        <div class="source-note">📊 Revenue = combined sales + POS · Expenses = expenses table</div>
+        <canvas id="chart-bar"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Profit / Loss Trend</div>
+        <div class="source-note">📊 Based on combined revenue minus expenses</div>
+        <canvas id="chart-line"></canvas>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="card">
+      <div class="modal-title" style="font-size:1.1rem;margin-bottom:16px;">📤 Export Report</div>
+      <p style="color:var(--muted);font-size:0.88rem;margin-bottom:16px;">Download your report as a printable summary.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-gold" onclick="exportCSV()">📊 Export CSV</button>
+        <button class="btn btn-outline" onclick="window.print()">🖨️ Print / Save PDF</button>
+      </div>
+    </div>
+
+    <!-- Detailed Table -->
+    <div class="card">
+      <div class="modal-title" style="font-size:1.1rem;margin-bottom:4px;">Detailed Breakdown</div>
+      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:16px;">
+        Shows POS transactions, confirmed daily records, and expenses combined.
+      </p>
+      <div id="report-table"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+<div id="main-footer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/lang.js"></script>
+<script src="js/app.js"></script>
+<script src="js/biztype.js"></script>
+<script>
+let currentUser;
+let currentPeriod = 'monthly';
+let barChart, lineChart;
+let reportData = { transactions: [], confirmedSales: [], expenses: [] };
+
+(async () => {
+  currentUser = await requireAuth();
+  if (!currentUser) return;
+  await initPage('reports');
+  loadReport();
+})();
+
+function setPeriod(p, btn) {
+  currentPeriod = p;
+  document.querySelectorAll('.report-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadReport();
+}
+
+function getDateRange() {
+  const now = new Date();
+  let start, end = now.toISOString().split('T')[0];
+  if (currentPeriod === 'weekly') {
+    const d = new Date(now); d.setDate(d.getDate() - 6);
+    start = d.toISOString().split('T')[0];
+  } else if (currentPeriod === 'monthly') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  } else {
+    start = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1).toISOString().split('T')[0];
+  }
+  return { start, end };
+}
+
+async function loadReport() {
+  const { start, end } = getDateRange();
+
+  const [
+    { data: transactions },
+    { data: confirmedSales },
+    { data: expenses },
+    { data: debts }
+  ] = await Promise.all([
+    _supabase.from('purchase_transactions')
+      .select('*').eq('user_id', currentUser.id)
+      .gte('date', start).lte('date', end).order('date'),
+    _supabase.from('sales')
+      .select('*').eq('user_id', currentUser.id)
+      .gte('date', start).lte('date', end).order('date'),
+    _supabase.from('expenses')
+      .select('*').eq('user_id', currentUser.id)
+      .gte('date', start).lte('date', end).order('date'),
+    _supabase.from('debts')
+      .select('amount').eq('user_id', currentUser.id)
+      .eq('status','unpaid').eq('type','i_owe')
+  ]);
+
+  reportData = {
+    transactions:   transactions   || [],
+    confirmedSales: confirmedSales || [],
+    expenses:       expenses       || []
+  };
+
+  // ── COMBINED REVENUE (safety net) ──
+  // Sales table is primary. For any day with POS transactions but NO sales table entry,
+  // add those POS totals directly — same logic as dashboard and sales page.
+  const salesDates      = new Set(reportData.confirmedSales.map(r => r.date));
+  const salesTableTotal = reportData.confirmedSales.reduce((s,r) => s + Number(r.total_amount||0), 0);
+  const unsyncedPOSRows = reportData.transactions.filter(r => !salesDates.has(r.date));
+  const unsyncedPOSDates= new Set(unsyncedPOSRows.map(r => r.date));
+  const unsyncedTotal   = unsyncedPOSRows.reduce((s,r) => s + Number(r.total_amount||0), 0);
+  const totalRevenue    = salesTableTotal + unsyncedTotal; // the real combined total
+
+  const totalConfirmed  = salesTableTotal; // manual daily records only
+  const totalExp        = reportData.expenses.reduce((s,r) => s + Number(r.amount||0), 0);
+  const profit          = totalRevenue - totalExp; // profit from real combined revenue
+  const totalDebt       = (debts||[]).reduce((s,r) => s + Number(r.amount||0), 0);
+
+  // Payment breakdown from POS transactions
+  const totalCash     = reportData.transactions.filter(r => r.payment_method === 'cash').reduce((s,r)     => s + Number(r.total_amount||0), 0);
+  const totalTransfer = reportData.transactions.filter(r => r.payment_method === 'transfer').reduce((s,r) => s + Number(r.total_amount||0), 0);
+  const totalPOSCard  = reportData.transactions.filter(r => r.payment_method === 'pos').reduce((s,r)      => s + Number(r.total_amount||0), 0);
+
+  document.getElementById('r-pos-sales').textContent       = formatCurrency(totalRevenue);
+  document.getElementById('r-confirmed-sales').textContent = formatCurrency(totalConfirmed);
+  document.getElementById('r-expenses').textContent        = formatCurrency(totalExp);
+  document.getElementById('r-cash').textContent            = formatCurrency(totalCash);
+  document.getElementById('r-transfer').textContent        = formatCurrency(totalTransfer);
+  document.getElementById('r-pos').textContent             = formatCurrency(totalPOSCard);
+  document.getElementById('r-debt').textContent            = formatCurrency(totalDebt);
+
+  const pEl = document.getElementById('r-profit');
+  pEl.textContent = formatCurrency(profit);
+  pEl.className   = 'card-value ' + (profit >= 0 ? 'success' : 'danger');
+
+  // ── BUILD CHART LABELS ──
+  const labels = [];
+  const revenueByLabel = {};
+  const expByLabel     = {};
+
+  if (currentPeriod === 'weekly') {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key   = d.toISOString().split('T')[0];
+      const label = d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric' });
+      labels.push(label);
+      revenueByLabel[key] = 0;
+      expByLabel[key]     = 0;
+    }
+    // Add confirmed sales to revenue chart
+    reportData.confirmedSales.forEach(r => {
+      if (revenueByLabel[r.date] !== undefined) revenueByLabel[r.date] += Number(r.total_amount||0);
+    });
+    // Add unsynced POS days to revenue chart
+    reportData.transactions.filter(r => unsyncedPOSDates.has(r.date)).forEach(r => {
+      if (revenueByLabel[r.date] !== undefined) revenueByLabel[r.date] += Number(r.total_amount||0);
+    });
+    reportData.expenses.forEach(r => {
+      if (expByLabel[r.date] !== undefined) expByLabel[r.date] += Number(r.amount||0);
+    });
+  } else {
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d   = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      labels.push(d.toLocaleDateString('en-GB', { month:'short', year:'2-digit' }));
+      revenueByLabel[key] = 0;
+      expByLabel[key]     = 0;
+    }
+    // Add confirmed sales to revenue chart
+    reportData.confirmedSales.forEach(r => {
+      const k = r.date.substring(0,7);
+      if (revenueByLabel[k] !== undefined) revenueByLabel[k] += Number(r.total_amount||0);
+    });
+    // Add unsynced POS days to revenue chart
+    reportData.transactions.filter(r => unsyncedPOSDates.has(r.date)).forEach(r => {
+      const k = r.date.substring(0,7);
+      if (revenueByLabel[k] !== undefined) revenueByLabel[k] += Number(r.total_amount||0);
+    });
+    reportData.expenses.forEach(r => {
+      const k = r.date.substring(0,7);
+      if (expByLabel[k] !== undefined) expByLabel[k] += Number(r.amount||0);
+    });
+  }
+
+  const rVals = Object.values(revenueByLabel);
+  const eVals = Object.values(expByLabel);
+  const pVals = rVals.map((s,i) => s - eVals[i]);
+
+  const chartDefaults = {
+    responsive: true,
+    plugins: { legend: { labels: { color:'#888880' } } },
+    scales: {
+      x: { ticks:{ color:'#888880' }, grid:{ color:'rgba(201,168,76,0.06)' } },
+      y: { ticks:{ color:'#888880' }, grid:{ color:'rgba(201,168,76,0.06)' } }
+    }
+  };
+
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('chart-bar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Total Revenue', data: rVals, backgroundColor:'rgba(76,175,125,0.6)',  borderColor:'var(--success)', borderWidth:1 },
+        { label: 'Expenses',      data: eVals, backgroundColor:'rgba(224,85,85,0.6)',   borderColor:'var(--danger)',  borderWidth:1 }
+      ]
+    },
+    options: chartDefaults
+  });
+
+  if (lineChart) lineChart.destroy();
+  lineChart = new Chart(document.getElementById('chart-line'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Profit/Loss',
+        data: pVals,
+        borderColor:'#c9a84c',
+        backgroundColor:'rgba(201,168,76,0.08)',
+        tension: 0.4, fill: true,
+        pointBackgroundColor:'#c9a84c'
+      }]
+    },
+    options: chartDefaults
+  });
+
+  // ── DETAILED TABLE ──
+  const el       = document.getElementById('report-table');
+  const combined = [
+    ...reportData.transactions.map(r => ({
+      date:     r.date,
+      desc:     Array.isArray(r.items)
+                  ? r.items.map(i => `${i.name} ×${i.qty}`).join(', ')
+                  : (r.notes || 'POS Transaction'),
+      type:     `POS · ${r.payment_method || ''}`,
+      amount:   r.total_amount,
+      positive: true,
+      badge:    'badge-success'
+    })),
+    ...reportData.confirmedSales.map(r => ({
+      date:     r.date,
+      desc:     r.notes || 'Daily Sales Record',
+      type:     'Manual Record',
+      amount:   r.total_amount,
+      positive: true,
+      badge:    'badge-info'
+    })),
+    ...reportData.expenses.map(r => ({
+      date:     r.date,
+      desc:     r.description || 'Expense',
+      type:     'Expense',
+      amount:   r.amount,
+      positive: false,
+      badge:    'badge-danger'
+    }))
+  ].sort((a,b) => b.date.localeCompare(a.date));
+
+  if (combined.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📈</div><p>No data for this period.</p></div>';
+    return;
+  }
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead>
+      <tr><th>Date</th><th>Description</th><th>Type</th><th>Amount</th></tr>
+    </thead>
+    <tbody>
+      ${combined.map(r => `<tr>
+        <td>${formatDate(r.date)}</td>
+        <td style="font-size:0.85rem;">${r.desc}</td>
+        <td><span class="badge ${r.badge}" style="font-size:0.72rem;text-transform:capitalize;">${r.type}</span></td>
+        <td style="color:${r.positive ? 'var(--success)' : 'var(--danger)'};font-weight:600;">
+          ${r.positive ? '+' : '-'}${formatCurrency(r.amount)}
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function exportCSV() {
+  const rows = [['Date','Description','Type','Amount']];
+  reportData.transactions.forEach(r => {
+    const desc = Array.isArray(r.items)
+      ? r.items.map(i => `${i.name} x${i.qty}`).join(' | ')
+      : (r.notes || 'POS Transaction');
+    rows.push([r.date, desc, `POS-${r.payment_method||''}`, r.total_amount]);
+  });
+  reportData.confirmedSales.forEach(r => rows.push([r.date, r.notes || 'Daily Record', 'Manual', r.total_amount]));
+  reportData.expenses.forEach(r => rows.push([r.date, r.description || 'Expense', 'Expense', `-${r.amount}`]));
+  const csv  = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `growthive-report-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>

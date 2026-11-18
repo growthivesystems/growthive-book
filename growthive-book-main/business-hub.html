@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — Growthive Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/monitor-link.js"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  :root{
+    --navy:#0A1F44;
+    --blue:#2563EB;
+    --blue-light:#EFF4FF;
+    --border:#E5E9F0;
+    --text-muted:#6B7280;
+    --text-faint:#9CA3AF;
+    --danger:#DC2626;
+    --danger-bg:#FEF2F2;
+    --success:#059669;
+    --success-bg:#ECFDF5;
+    --warn:#B45309;
+    --warn-bg:#FFFBEB;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif;background:#F7F8FA;margin:0;color:var(--navy);}
+
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 32px;background:#fff;border-bottom:1px solid var(--border);
+  }
+  .topbar .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;}
+  .topbar .logo-mark{width:30px;height:30px;border-radius:8px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .logout-btn{background:none;border:1px solid var(--border);padding:9px 16px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--navy);}
+  .logout-btn:hover{background:#F7F8FA;}
+
+  .shell{max-width:840px;margin:0 auto;padding:32px 24px 80px;}
+
+  .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:26px;margin-bottom:20px;}
+
+  .biz-card h1{font-size:21px;margin:0 0 4px;}
+  .biz-card .category{font-size:13px;color:var(--blue);font-weight:600;margin-bottom:14px;}
+  .link-box{
+    background:var(--blue-light);border:1px solid #C7D9FB;border-radius:10px;
+    padding:12px 14px;font-size:13.5px;font-weight:600;color:var(--blue);
+    display:flex;align-items:center;justify-content:space-between;gap:10px;word-break:break-all;
+  }
+  .copy-btn{background:none;border:none;color:var(--blue);cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;}
+
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
+  .stat-box{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center;}
+  .stat-box .num{font-size:26px;font-weight:800;}
+  .stat-box .label{font-size:12.5px;color:var(--text-muted);margin-top:2px;}
+
+  .page-tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .page-tab-btn{
+    padding:11px 20px;border-radius:10px;border:1px solid var(--border);background:#fff;
+    font-size:14px;font-weight:700;cursor:pointer;color:var(--text-muted);
+  }
+  .page-tab-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab-btn{
+    padding:9px 16px;border-radius:8px;border:1px solid var(--border);background:#fff;
+    font-size:13.5px;font-weight:600;cursor:pointer;color:var(--text-muted);
+  }
+  .tab-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+  .booking-row{
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+    padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:10px;
+  }
+  .booking-info .svc{font-weight:700;font-size:14.5px;}
+  .booking-info .when{font-size:13px;color:var(--text-muted);margin-top:2px;}
+  .booking-info .customer{font-size:13px;color:var(--text-muted);margin-top:2px;}
+  .status-pill{
+    font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;text-transform:capitalize;
+  }
+  .status-pill.pending{background:var(--warn-bg);color:var(--warn);}
+  .status-pill.confirmed{background:var(--success-bg);color:var(--success);}
+  .status-pill.cancelled{background:var(--danger-bg);color:var(--danger);}
+  .status-pill.completed{background:var(--blue-light);color:var(--blue);}
+  .status-pill.no_show{background:#F3F4F6;color:#6B7280;}
+  .booking-row{flex-wrap:wrap;}
+  .booking-actions{flex-wrap:wrap;}
+  .btn-done{background:var(--blue);color:#fff;}
+  .btn-ghost,.btn-sm.btn-ghost{background:#fff;border:1px solid var(--border);color:var(--navy);cursor:pointer;}
+  .btn-ghost:hover{background:#F7F8FA;}
+  .booking-meta{font-size:12.5px;margin-top:4px;color:var(--text-muted);}
+  .booking-meta strong{color:var(--success);}
+  .tabs-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .tabs-row .tabs{margin-bottom:0;flex-wrap:wrap;}
+  .modal-ov{position:fixed;inset:0;background:rgba(10,31,68,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;}
+  .modal-box{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:440px;max-height:90vh;overflow:auto;}
+  .modal-box h2{font-size:17px;margin:0 0 14px;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+  .modal-box .save-banner{margin-bottom:12px;}
+
+  .booking-actions{display:flex;gap:8px;flex-shrink:0;}
+  .btn-sm{
+    padding:7px 12px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;
+  }
+  .btn-confirm{background:var(--success);color:#fff;}
+  .btn-cancel{background:#fff;border:1px solid var(--danger);color:var(--danger);}
+
+  .empty-state{text-align:center;padding:40px 20px;color:var(--text-faint);font-size:14px;}
+  .loading-state{text-align:center;padding:80px 20px;color:var(--text-muted);}
+
+  .card h2{font-size:16px;margin:0 0 18px;}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;margin-top:16px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=tel], input[type=number], input[type=time], input[type=file], select, textarea{
+    width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:9px;
+    font-size:14px;font-family:inherit;color:var(--navy);background:#fff;
+  }
+  input:focus, select:focus, textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-light);}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:520px){.row-2{grid-template-columns:1fr;}}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px 22px;border-radius:9px;font-weight:700;font-size:13.5px;
+    border:none;cursor:pointer;
+  }
+  .btn-primary{background:var(--blue);color:#fff;}
+  .btn-primary:hover{background:#1D4ED8;}
+  .btn-primary:disabled{background:#A9C2F5;cursor:not-allowed;}
+
+  .save-banner{padding:12px 14px;border-radius:9px;font-size:13.5px;margin-bottom:18px;display:none;}
+  .save-banner.error{background:var(--danger-bg);color:var(--danger);}
+  .save-banner.success{background:var(--success-bg);color:var(--success);}
+
+  .service-edit-row{
+    display:flex;gap:10px;align-items:flex-end;padding:14px;border:1px solid var(--border);
+    border-radius:10px;margin-bottom:10px;
+  }
+  .service-edit-row .field{flex:1;}
+  .service-edit-row .field.small{flex:0 0 90px;}
+  .service-edit-row label{margin-top:0;font-size:11px;color:var(--text-muted);}
+  .remove-service-btn{
+    background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;
+    padding:11px 4px;font-weight:600;
+  }
+  .add-service-btn{
+    width:100%;padding:11px;border:1.5px dashed var(--border);border-radius:10px;
+    background:none;color:var(--blue);font-weight:600;font-size:13.5px;cursor:pointer;margin-bottom:16px;
+  }
+  .add-service-btn:hover{background:var(--blue-light);}
+
+  .day-row{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--border);}
+  .day-row:last-child{border-bottom:none;}
+  .day-check{display:flex;align-items:center;gap:8px;width:120px;flex-shrink:0;font-size:13.5px;font-weight:600;}
+  .day-check input{width:17px;height:17px;accent-color:var(--blue);}
+  .day-times{display:flex;gap:8px;align-items:center;flex:1;}
+  .day-times input{padding:8px 10px;font-size:13px;}
+  .day-times span{color:var(--text-faint);font-size:13px;}
+  .day-row.disabled .day-times{opacity:0.35;pointer-events:none;}
+
+  /* --- Photos / gallery --- */
+  .gallery-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
+    gap:10px;margin-bottom:18px;
+  }
+  .gallery-thumb{
+    position:relative;border-radius:10px;overflow:hidden;aspect-ratio:1;
+    background:#F1F3F6;border:1px solid var(--border);
+  }
+  .gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .remove-photo-btn{
+    position:absolute;top:5px;right:5px;background:rgba(10,31,68,0.65);color:#fff;
+    border:none;border-radius:6px;width:22px;height:22px;font-size:12px;cursor:pointer;
+    line-height:1;display:flex;align-items:center;justify-content:center;
+  }
+  .remove-photo-btn:hover{background:rgba(220,38,38,0.85);}
+  .photo-upload-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .photo-upload-row input[type=file]{flex:1;min-width:180px;}
+  .gallery-hint{font-size:12px;color:var(--text-muted);margin-top:8px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><div class="logo-mark">G</div>Growthive Book</div>
+  <button class="logout-btn" id="logoutBtn">Log out</button>
+</div>
+
+<div class="shell" id="shell">
+  <div class="loading-state">Loading your dashboard...</div>
+</div>
+
+<script>
+  const sb = supabaseClient;
+  const mlReady = () => typeof MonitorLink !== 'undefined';
+  const mlSync = () => { if (mlReady()) MonitorLink.syncPending(sb, business.id).catch(()=>{}); };
+  const shell = document.getElementById('shell');
+
+  const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  const GALLERY_BUCKET = 'gallery-images'; // must match the Storage bucket name in Supabase
+
+  let business = null;
+  let allBookings = [];
+  let allServices = [];
+  let allGalleryImages = [];
+  let currentPageTab = 'bookings';
+  let currentBookingTab = 'upcoming';
+  let serviceEditIdCounter = 0;
+
+  async function init(){
+    const { data: { user }, error: userError } = await sb.auth.getUser();
+    if (userError || !user){
+      window.location.href = 'login.html';
+      return;
+    }
+
+    const { data: biz, error: bizError } = await sb
+      .from('businesses')
+      .select('*')
+      .eq('owner_id', user.id)
+      .maybeSingle();
+
+    if (bizError){
+      shell.innerHTML = `<div class="empty-state">Something went wrong loading your business: ${escapeHtml(bizError.message)}</div>`;
+      return;
+    }
+    if (!biz){
+      window.location.href = 'business-setup.html';
+      return;
+    }
+    business = biz;
+
+    await Promise.all([loadBookings(), loadServices(), loadGallery()]);
+    render();
+    mlSync();
+  }
+
+  async function loadBookings(){
+    const { data, error } = await sb
+      .from('bookings')
+      .select('*, services(name, duration_minutes, price)')
+      .eq('business_id', business.id)
+      .order('booking_date', { ascending: true })
+      .order('booking_time', { ascending: true });
+
+    if (error){
+      shell.innerHTML = `<div class="empty-state">Something went wrong loading bookings: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    allBookings = data || [];
+  }
+
+  async function loadServices(){
+    const { data, error } = await sb
+      .from('services')
+      .select('*')
+      .eq('business_id', business.id)
+      .order('name');
+    if (error){
+      console.error(error);
+      return;
+    }
+    allServices = data || [];
+  }
+
+  async function loadGallery(){
+    const { data, error } = await sb
+      .from('gallery_images')
+      .select('*')
+      .eq('business_id', business.id)
+      .order('created_at', { ascending: false });
+    if (error){
+      console.error(error);
+      return;
+    }
+    allGalleryImages = data || [];
+  }
+
+  function render(){
+    const bookingUrl = window.location.origin + window.location.pathname.replace('business-hub.html','') + 'book.html?b=' + business.slug;
+
+    const todayStr = localToday();
+    const pendingCount = allBookings.filter(b => b.status === 'pending').length;
+    const upcomingCount = allBookings.filter(b => b.booking_date >= todayStr && !['cancelled','completed','no_show'].includes(b.status)).length;
+    const earnedMonth = allBookings.filter(b => b.status === 'completed' && String(b.booking_date).slice(0,7) === todayStr.slice(0,7)).reduce((s,b) => s + Number(b.amount_paid || 0), 0);
+    const totalCount = allBookings.length;
+
+    shell.innerHTML = `
+      <div class="card biz-card">
+        <h1>${escapeHtml(business.business_name)}</h1>
+        <div class="category">${escapeHtml(business.category || '')}</div>
+        <div class="link-box">
+          <span>${escapeHtml(bookingUrl)}</span>
+          <button class="copy-btn" id="copyLinkBtn">Copy</button>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box"><div class="num">${upcomingCount}</div><div class="label">Upcoming</div></div>
+        <div class="stat-box"><div class="num">${pendingCount}</div><div class="label">Awaiting approval</div></div>
+        <div class="stat-box"><div class="num">${totalCount}</div><div class="label">Total bookings</div></div>
+        <div class="stat-box"><div class="num" style="font-size:21px;">${money(earnedMonth)}</div><div class="label">Earned this month</div></div>
+      </div>
+
+      <div class="page-tabs">
+        <button class="page-tab-btn ${currentPageTab==='bookings'?'active':''}" data-pagetab="bookings">Bookings</button>
+        <button class="page-tab-btn ${currentPageTab==='manage'?'active':''}" data-pagetab="manage">Manage business</button>
+      </div>
+
+      <div id="pageContent"></div>
+    `;
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(bookingUrl);
+      const btn = document.getElementById('copyLinkBtn');
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = original, 1500);
+    });
+
+    document.querySelectorAll('.page-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentPageTab = btn.dataset.pagetab;
+        render();
+      });
+    });
+
+    if (currentPageTab === 'bookings'){
+      renderBookingsSection(todayStr);
+    } else {
+      renderManageSection();
+    }
+  }
+
+  function renderBookingsSection(todayStr){
+    const content = document.getElementById('pageContent');
+    content.innerHTML = `
+      <div class="card">
+        <div class="tabs-row">
+          <div class="tabs">
+            <button class="tab-btn ${currentBookingTab==='upcoming'?'active':''}" data-tab="upcoming">Upcoming</button>
+            <button class="tab-btn ${currentBookingTab==='pending'?'active':''}" data-tab="pending">Pending</button>
+            <button class="tab-btn ${currentBookingTab==='done'?'active':''}" data-tab="done">Done</button>
+            <button class="tab-btn ${currentBookingTab==='all'?'active':''}" data-tab="all">All</button>
+          </div>
+          <button class="btn btn-primary" id="walkinBtn" style="padding:9px 16px;">+ Walk-in</button>
+        </div>
+        <div id="bookingsList"></div>
+      </div>
+    `;
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentBookingTab = btn.dataset.tab;
+        renderBookingsSection(todayStr);
+      });
+    });
+
+    document.getElementById('walkinBtn').addEventListener('click', openWalkIn);
+    renderBookingsList(todayStr);
+  }
+
+  function renderBookingsList(todayStr){
+    const list = document.getElementById('bookingsList');
+
+    let filtered = allBookings;
+    if (currentBookingTab === 'upcoming'){
+      filtered = allBookings.filter(b => b.booking_date >= todayStr && !['cancelled','completed','no_show'].includes(b.status));
+    } else if (currentBookingTab === 'done'){
+      filtered = allBookings.filter(b => b.status === 'completed').slice().reverse();
+    } else if (currentBookingTab === 'pending'){
+      filtered = allBookings.filter(b => b.status === 'pending');
+    }
+
+    if (filtered.length === 0){
+      list.innerHTML = `<div class="empty-state">No bookings here yet.</div>`;
+      return;
+    }
+
+    list.innerHTML = '';
+    filtered.forEach(b => {
+      const svc = b.services || {};
+      const row = document.createElement('div');
+      row.className = 'booking-row';
+      row.innerHTML = `
+        <div class="booking-info">
+          <div class="svc">${escapeHtml(svc.name || 'Service')}</div>
+          <div class="when">${b.booking_date} at ${b.booking_time ? b.booking_time.slice(0,5) : ''}</div>
+          <div class="customer">${escapeHtml(b.customer_name)} · ${escapeHtml(b.customer_phone)}</div>
+          ${b.status === 'completed' ? `<div class="booking-meta">Paid <strong>${money(b.amount_paid)}</strong>${b.payment_method ? ' · ' + escapeHtml(b.payment_method) : ''}${b.source === 'walkin' ? ' · walk-in' : ''}</div>` : ''}
+          ${b.owner_note ? `<div class="booking-meta">📝 ${escapeHtml(b.owner_note)}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="status-pill ${b.status}">${b.status}</span>
+          <div class="booking-actions" data-actions></div>
+        </div>
+      `;
+      const actions = row.querySelector('[data-actions]');
+      if (b.status === 'pending'){
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn-sm btn-confirm';
+        confirmBtn.textContent = 'Confirm';
+        confirmBtn.addEventListener('click', () => updateStatus(b.id, 'confirmed'));
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-sm btn-cancel';
+        cancelBtn.textContent = 'Decline';
+        cancelBtn.addEventListener('click', () => updateStatus(b.id, 'cancelled'));
+        actions.appendChild(confirmBtn);
+        actions.appendChild(cancelBtn);
+      } else if (b.status === 'confirmed'){
+        addBtn(actions, 'Done', 'btn-done', () => openDone(b));
+        addBtn(actions, 'Reschedule', 'btn-ghost', () => openReschedule(b));
+        addBtn(actions, 'No-show', 'btn-ghost', () => { if (confirm('Mark this booking as a no-show?')) updateStatus(b.id, 'no_show'); });
+        addBtn(actions, 'Cancel', 'btn-cancel', () => updateStatus(b.id, 'cancelled'));
+      } else if (b.status === 'completed'){
+        addBtn(actions, 'Edit amount', 'btn-ghost', () => openDone(b));
+      }
+      addBtn(actions, b.owner_note ? 'Note' : '+ Note', 'btn-ghost', () => openNote(b));
+      list.appendChild(row);
+    });
+  }
+
+  /* ---------- helpers for money, dates, modals ---------- */
+  function money(n){ return '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 2 }); }
+  function localToday(){ return new Date().toLocaleDateString('en-CA'); }
+  function localNowTime(){ const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0'); }
+  function addBtn(parent, text, cls, fn){
+    const b = document.createElement('button');
+    b.className = 'btn-sm ' + cls; b.textContent = text; b.addEventListener('click', fn);
+    parent.appendChild(b);
+  }
+  function waNumber(phone){
+    let d = String(phone || '').replace(/[^0-9]/g, '');
+    if (d.startsWith('0')) d = '234' + d.slice(1);
+    return d;
+  }
+  function modal(title, bodyHtml, saveLabel, onSave){
+    const ov = document.createElement('div');
+    ov.className = 'modal-ov';
+    ov.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}">
+      <h2>${escapeHtml(title)}</h2>
+      <div class="save-banner error" data-err></div>
+      ${bodyHtml}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-x>Cancel</button>
+        ${saveLabel ? `<button class="btn btn-primary" data-ok>${escapeHtml(saveLabel)}</button>` : ''}
+      </div></div>`;
+    document.body.appendChild(ov);
+    const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    ov.addEventListener('click', e => { if (e.target === ov) close(); });
+    ov.querySelector('[data-x]').addEventListener('click', close);
+    const ok = ov.querySelector('[data-ok]');
+    if (ok) ok.addEventListener('click', async () => {
+      const err = ov.querySelector('[data-err]');
+      err.style.display = 'none'; ok.disabled = true;
+      try {
+        const problem = await onSave(ov);
+        if (problem){ err.textContent = problem; err.style.display = 'block'; ok.disabled = false; }
+        else close();
+      } catch (e){ err.textContent = e.message || 'Something went wrong.'; err.style.display = 'block'; ok.disabled = false; }
+    });
+    const first = ov.querySelector('input,select,textarea'); if (first) first.focus();
+    return ov;
+  }
+  const SQL_HINT = ' (Has the SQL file book-01-done-walkins-notes.sql been run in Supabase?)';
+  function dbProblem(error){ return error ? 'Could not save: ' + error.message + (/column|schema|status|policy|violates/i.test(error.message) ? SQL_HINT : '') : null; }
+  const METHODS = `<option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>`;
+
+  /* ---------- Done: enter the amount actually paid ---------- */
+  function openDone(b){
+    const svc = b.services || {};
+    const amount = b.amount_paid != null ? b.amount_paid : (svc.price || '');
+    modal(b.status === 'completed' ? 'Edit amount paid' : 'Mark as done', `
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">${escapeHtml(svc.name || 'Service')} · ${escapeHtml(b.customer_name)}</div>
+      <label>Amount paid (₦)</label><input type="number" id="d_amount" min="0" step="0.01" value="${escapeAttr(amount)}">
+      <label>Paid by</label><select id="d_method">${METHODS}</select>
+      <label>Note (optional)</label><input type="text" id="d_note" value="${escapeAttr(b.owner_note || '')}" placeholder="e.g. tipped, brought own polish">`,
+      'Save', async (ov) => {
+        const amt = parseFloat(ov.querySelector('#d_amount').value);
+        if (isNaN(amt) || amt < 0) return 'Enter the amount the customer paid (0 if free).';
+        const upd = { status: 'completed', amount_paid: amt, payment_method: ov.querySelector('#d_method').value,
+                      owner_note: ov.querySelector('#d_note').value.trim() || null };
+        if (b.status !== 'completed') upd.completed_at = new Date().toISOString();
+        upd.monitor_synced_at = null;
+        const { error } = await sb.from('bookings').update(upd).eq('id', b.id);
+        if (error) return dbProblem(error);
+        await loadBookings(); render();
+        mlSync();
+      });
+    const m = document.querySelector('#d_method'); if (m && b.payment_method) m.value = b.payment_method;
+  }
+
+  /* ---------- Walk-in: a client who did not book online ---------- */
+  function openWalkIn(){
+    if (!allServices.length){ alert('Add at least one service under "Manage business" first.'); return; }
+    modal('Add a walk-in', `
+      <label>Service</label>
+      <select id="w_service">${allServices.map(s => `<option value="${escapeAttr(s.id)}" data-price="${escapeAttr(s.price || '')}">${escapeHtml(s.name)}${s.price ? ' — ' + money(s.price) : ''}</option>`).join('')}</select>
+      <div class="row-2">
+        <div><label>Client name</label><input type="text" id="w_name" placeholder="Walk-in client"></div>
+        <div><label>Phone (optional)</label><input type="tel" id="w_phone"></div>
+      </div>
+      <div class="row-2">
+        <div><label>Date</label><input type="date" id="w_date" value="${localToday()}"></div>
+        <div><label>Amount paid (₦)</label><input type="number" id="w_amount" min="0" step="0.01"></div>
+      </div>
+      <label>Paid by</label><select id="w_method">${METHODS}</select>
+      <label>Note (optional)</label><input type="text" id="w_note">`,
+      'Save walk-in', async (ov) => {
+        const sel = ov.querySelector('#w_service');
+        const amt = parseFloat(ov.querySelector('#w_amount').value);
+        if (isNaN(amt) || amt < 0) return 'Enter the amount the client paid.';
+        const row = {
+          business_id: business.id, service_id: sel.value,
+          customer_name: ov.querySelector('#w_name').value.trim() || 'Walk-in',
+          customer_phone: ov.querySelector('#w_phone').value.trim() || '-',
+          booking_date: ov.querySelector('#w_date').value || localToday(), booking_time: localNowTime(),
+          status: 'completed', amount_paid: amt, payment_method: ov.querySelector('#w_method').value,
+          completed_at: new Date().toISOString(), owner_note: ov.querySelector('#w_note').value.trim() || null, source: 'walkin'
+        };
+        const { error } = await sb.from('bookings').insert(row);
+        if (error) return dbProblem(error);
+        currentBookingTab = 'done';
+        await loadBookings(); render();
+        mlSync();
+      });
+    const sel = document.querySelector('#w_service'), amt = document.querySelector('#w_amount');
+    const fill = () => { const p = sel.selectedOptions[0].getAttribute('data-price'); if (p) amt.value = p; };
+    sel.addEventListener('change', fill); fill();
+  }
+
+  /* ---------- Reschedule ---------- */
+  function openReschedule(b){
+    const svc = b.services || {};
+    modal('Reschedule booking', `
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">${escapeHtml(svc.name || 'Service')} · ${escapeHtml(b.customer_name)}<br>Now: ${escapeHtml(b.booking_date)} at ${b.booking_time ? b.booking_time.slice(0,5) : ''}</div>
+      <div class="row-2">
+        <div><label>New date</label><input type="date" id="r_date" min="${localToday()}" value="${escapeAttr(b.booking_date)}"></div>
+        <div><label>New time</label><input type="time" id="r_time" value="${escapeAttr(b.booking_time ? b.booking_time.slice(0,5) : '')}"></div>
+      </div>`,
+      'Move booking', async (ov) => {
+        const date = ov.querySelector('#r_date').value, time = ov.querySelector('#r_time').value;
+        if (!date || !time) return 'Choose a date and a time.';
+        const toMin = t => { const [h, m] = String(t).slice(0,5).split(':').map(Number); return h * 60 + m; };
+        const dur = x => (x.services && x.services.duration_minutes) || business.appointment_interval_minutes || 30;
+        const s = toMin(time), e = s + dur(b);
+        const clash = allBookings.find(o => o.id !== b.id && o.booking_date === date && !['cancelled','no_show'].includes(o.status) &&
+          s < toMin(o.booking_time) + dur(o) && toMin(o.booking_time) < e);
+        if (clash) return 'That time overlaps ' + clash.customer_name + "'s booking at " + String(clash.booking_time).slice(0,5) + '. Pick another time.';
+        const { error } = await sb.from('bookings').update({ booking_date: date, booking_time: time + ':00', rescheduled_at: new Date().toISOString() }).eq('id', b.id);
+        if (error) return dbProblem(error);
+        await loadBookings(); render();
+        const wa = waNumber(b.customer_phone);
+        if (wa.length >= 10){
+          const msg = `Hello ${b.customer_name}, your ${svc.name || 'booking'} at ${business.business_name} has been moved to ${date} at ${time}. Please reply to confirm. Thank you.`;
+          modal('Booking moved', `<p style="font-size:14px;margin:0;">Let ${escapeHtml(b.customer_name)} know:</p>
+            <a class="btn btn-primary" style="margin-top:12px;text-decoration:none;" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">Message on WhatsApp</a>`, null, null);
+        }
+      });
+  }
+
+  /* ---------- Private note ---------- */
+  function openNote(b){
+    modal('Private note', `
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">Only you can see this. ${escapeHtml(b.customer_name)}</div>
+      <textarea id="n_note" rows="4" placeholder="e.g. allergic to latex, prefers short nails">${escapeHtml(b.owner_note || '')}</textarea>`,
+      'Save note', async (ov) => {
+        const { error } = await sb.from('bookings').update({ owner_note: ov.querySelector('#n_note').value.trim() || null }).eq('id', b.id);
+        if (error) return dbProblem(error);
+        await loadBookings(); render();
+      });
+  }
+
+  async function updateStatus(bookingId, newStatus){
+    const { error } = await sb.from('bookings').update({ status: newStatus }).eq('id', bookingId);
+    if (error){
+      alert('Could not update booking: ' + error.message);
+      return;
+    }
+    await loadBookings();
+    render();
+  }
+
+  function renderManageSection(){
+    const content = document.getElementById('pageContent');
+    content.innerHTML = `
+      <div class="save-banner error" id="infoBanner"></div>
+
+      <div class="card">
+        <h2>Business info</h2>
+        <label>Business name *</label>
+        <input type="text" id="m_name" value="${escapeAttr(business.business_name)}">
+
+        <label>Description</label>
+        <textarea id="m_description" rows="3">${escapeHtml(business.description || '')}</textarea>
+
+        <div class="row-2">
+          <div>
+            <label>Phone number *</label>
+            <input type="tel" id="m_phone" value="${escapeAttr(business.phone)}">
+          </div>
+          <div>
+            <label>WhatsApp number</label>
+            <input type="tel" id="m_whatsapp" value="${escapeAttr(business.whatsapp)}">
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div>
+            <label>City</label>
+            <input type="text" id="m_city" value="${escapeAttr(business.city)}">
+          </div>
+          <div>
+            <label>Country</label>
+            <input type="text" id="m_country" value="${escapeAttr(business.country)}">
+          </div>
+        </div>
+
+        <label>Address</label>
+        <input type="text" id="m_address" value="${escapeAttr(business.address)}">
+
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" id="saveInfoBtn">Save business info</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Services</h2>
+        <div id="serviceEditList"></div>
+        <button type="button" class="add-service-btn" id="addServiceEditBtn">+ Add a service</button>
+        <button class="btn btn-primary" id="saveServicesBtn">Save services</button>
+      </div>
+
+      <div class="card">
+        <h2>Photos</h2>
+        <div class="gallery-grid" id="galleryGrid"></div>
+        <div class="photo-upload-row">
+          <input type="file" id="galleryFileInput" accept="image/*">
+          <button class="btn btn-primary" id="uploadPhotoBtn">Upload photo</button>
+        </div>
+        <div class="gallery-hint">These photos show on your public booking page. JPG or PNG, one at a time.</div>
+      </div>
+
+      <div class="card" id="monitorCard"><h2>Growthive Monitor</h2><div id="monitorBody" style="font-size:14px;">Loading…</div></div>
+
+      <div class="card">
+        <h2>Availability</h2>
+        <div id="manageDaysList"></div>
+        <label>Appointment slot length</label>
+        <select id="m_slot_interval">
+          <option value="15">15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="45">45 minutes</option>
+          <option value="60">60 minutes</option>
+        </select>
+        <label>Booking approval</label>
+        <select id="m_booking_approval">
+          <option value="automatic">Automatic — confirm bookings instantly</option>
+          <option value="manual">Manual — I approve each booking myself</option>
+        </select>
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" id="saveAvailabilityBtn">Save availability</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('saveInfoBtn').addEventListener('click', saveBusinessInfo);
+    document.getElementById('addServiceEditBtn').addEventListener('click', () => addServiceEditRow());
+    document.getElementById('saveServicesBtn').addEventListener('click', saveServices);
+    document.getElementById('uploadPhotoBtn').addEventListener('click', handleAddPhoto);
+    document.getElementById('saveAvailabilityBtn').addEventListener('click', saveAvailability);
+
+    renderServiceEditRows();
+    renderGalleryGrid();
+    renderManageDays();
+    renderMonitorCard();
+  }
+
+  async function renderMonitorCard(){
+    const box = document.getElementById('monitorBody'); if (!box) return;
+    if (!mlReady()){ box.innerHTML = '<span style="color:#b00020;">The Monitor link file is missing: upload <b>assets/js/monitor-link.js</b> to your Book repo (check the folder path and spelling), then refresh.</span>'; return; }
+    try {
+    const link = await MonitorLink.get(sb, business.id);
+    if (link){
+      box.innerHTML = `<p style="margin:0 0 8px;">Connected to <b>${escapeHtml(link.monitor_email || 'Monitor')}</b> since ${escapeHtml(String(link.connected_at).slice(0,10))}. Every booking you mark Done goes into your Monitor sales and jobs automatically.</p>
+        <div id="mlMsg" style="color:var(--text-muted);margin-bottom:8px;"></div>
+        <button class="btn btn-ghost" id="mlSync">Sync now</button> <button class="btn btn-ghost" id="mlOff">Disconnect</button>`;
+      document.getElementById('mlSync').onclick = async () => { const r = await MonitorLink.syncPending(sb, business.id); document.getElementById('mlMsg').textContent = r.error ? 'Could not send: ' + r.error : (r.sent ? r.sent + ' sent to Monitor.' : 'Everything is up to date.'); };
+      document.getElementById('mlOff').onclick = async () => { if (!confirm('Disconnect from Monitor? Jobs already sent stay there.')) return; await MonitorLink.disconnect(sb, business.id); renderMonitorCard(); };
+    } else {
+      box.innerHTML = `<p style="margin:0 0 8px;">Optional. Link your Growthive Monitor account so finished bookings count in your daily sales and profit. Only new bookings from today on are sent. Monitor will switch to "Both" if it was set to products only. Your password is used once and not saved.</p>
+        <label>Monitor email</label><input type="email" id="ml_email" autocomplete="off">
+        <label>Monitor password</label><input type="password" id="ml_pass" autocomplete="off">
+        <div id="mlErr" style="color:#b00020;margin:8px 0;display:none;"></div>
+        <button class="btn btn-primary" id="mlOn">Connect to Monitor</button>`;
+      document.getElementById('mlOn').onclick = async (ev) => {
+        const btn = ev.target, err = document.getElementById('mlErr'); err.style.display = 'none';
+        const email = document.getElementById('ml_email').value.trim(), pw = document.getElementById('ml_pass').value;
+        if (!email || !pw){ err.textContent = 'Enter your Monitor email and password.'; err.style.display = 'block'; return; }
+        btn.disabled = true; btn.textContent = 'Connecting…';
+        const r = await MonitorLink.connect(sb, business, allServices, email, pw);
+        if (r.error){ err.textContent = r.error; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Connect to Monitor'; return; }
+        renderMonitorCard();
+      };
+    }
+    } catch (e) { box.innerHTML = '<span style="color:#b00020;">Could not load the Monitor link: ' + escapeHtml(e.message || String(e)) + '</span>'; }
+  }
+
+
+  function showManageMessage(msg, isError){
+    const el = document.getElementById('infoBanner');
+    el.textContent = msg;
+    el.className = 'save-banner ' + (isError ? 'error' : 'success');
+    el.style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+    setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
+  async function saveBusinessInfo(){
+    const btn = document.getElementById('saveInfoBtn');
+    const name = document.getElementById('m_name').value.trim();
+    const phone = document.getElementById('m_phone').value.trim();
+
+    if (!name || !phone){
+      showManageMessage('Business name and phone number are required.', true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const { error } = await sb.from('businesses').update({
+      business_name: name,
+      description: document.getElementById('m_description').value.trim(),
+      phone: phone,
+      whatsapp: document.getElementById('m_whatsapp').value.trim(),
+      city: document.getElementById('m_city').value.trim(),
+      country: document.getElementById('m_country').value.trim(),
+      address: document.getElementById('m_address').value.trim()
+    }).eq('id', business.id);
+
+    btn.disabled = false;
+    btn.textContent = 'Save business info';
+
+    if (error){
+      showManageMessage('Could not save: ' + error.message, true);
+      return;
+    }
+
+    business.business_name = name;
+    showManageMessage('Business info saved.', false);
+    document.querySelector('.biz-card h1').textContent = name;
+  }
+
+  function renderServiceEditRows(){
+    const list = document.getElementById('serviceEditList');
+    list.innerHTML = '';
+    if (allServices.length === 0){
+      addServiceEditRow();
+      return;
+    }
+    allServices.forEach(s => addServiceEditRow(s));
+  }
+
+  function addServiceEditRow(existing){
+    existing = existing || {};
+    const id = 'msvc_' + (serviceEditIdCounter++);
+    const wrap = document.createElement('div');
+    wrap.className = 'service-edit-row';
+    wrap.id = id;
+    wrap.dataset.existingId = existing.id || '';
+    wrap.innerHTML = `
+      <div class="field">
+        <label>Service name</label>
+        <input type="text" class="msvc-name" placeholder="e.g. Gel Manicure" value="${escapeAttr(existing.name || '')}">
+      </div>
+      <div class="field small">
+        <label>Price (₦)</label>
+        <input type="number" class="msvc-price" min="0" value="${existing.price != null ? existing.price : ''}">
+      </div>
+      <div class="field small">
+        <label>Duration (min)</label>
+        <input type="number" class="msvc-duration" min="5" value="${existing.duration_minutes != null ? existing.duration_minutes : ''}">
+      </div>
+      <button type="button" class="remove-service-btn">Remove</button>
+    `;
+    wrap.querySelector('.remove-service-btn').addEventListener('click', () => {
+      wrap.remove();
+    });
+    document.getElementById('serviceEditList').appendChild(wrap);
+  }
+
+  async function saveServices(){
+    const btn = document.getElementById('saveServicesBtn');
+    const rows = Array.from(document.querySelectorAll('.service-edit-row'));
+
+    const toKeep = [];
+    const toInsert = [];
+    rows.forEach(row => {
+      const name = row.querySelector('.msvc-name').value.trim();
+      if (!name) return;
+      const price = parseFloat(row.querySelector('.msvc-price').value) || 0;
+      const duration_minutes = parseInt(row.querySelector('.msvc-duration').value) || 30;
+      const existingId = row.dataset.existingId;
+      if (existingId){
+        toKeep.push({ id: existingId, name, price, duration_minutes });
+      } else {
+        toInsert.push({ business_id: business.id, name, price, duration_minutes });
+      }
+    });
+
+    if (toKeep.length === 0 && toInsert.length === 0){
+      showManageMessage('Add at least one service before saving.', true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    for (const s of toKeep){
+      const { error } = await sb.from('services')
+        .update({ name: s.name, price: s.price, duration_minutes: s.duration_minutes })
+        .eq('id', s.id);
+      if (error){
+        showManageMessage('Could not update a service: ' + error.message, true);
+        btn.disabled = false;
+        btn.textContent = 'Save services';
+        return;
+      }
+    }
+
+    const keptIds = toKeep.map(s => s.id);
+    const removedIds = allServices.map(s => s.id).filter(id => !keptIds.includes(id));
+    if (removedIds.length > 0){
+      const { error } = await sb.from('services').delete().in('id', removedIds);
+      if (error){
+        showManageMessage('Could not remove a service: ' + error.message, true);
+        btn.disabled = false;
+        btn.textContent = 'Save services';
+        return;
+      }
+    }
+
+    if (toInsert.length > 0){
+      const { error } = await sb.from('services').insert(toInsert);
+      if (error){
+        showManageMessage('Could not add new service(s): ' + error.message, true);
+        btn.disabled = false;
+        btn.textContent = 'Save services';
+        return;
+      }
+    }
+
+    await loadServices();
+    btn.disabled = false;
+    btn.textContent = 'Save services';
+    showManageMessage('Services saved.', false);
+    renderServiceEditRows();
+  }
+
+  function renderGalleryGrid(){
+    const grid = document.getElementById('galleryGrid');
+    if (!grid) return;
+    if (allGalleryImages.length === 0){
+      grid.innerHTML = `<div class="empty-state" style="padding:16px;">No photos yet.</div>`;
+      return;
+    }
+    grid.innerHTML = '';
+    allGalleryImages.forEach(img => {
+      const thumb = document.createElement('div');
+      thumb.className = 'gallery-thumb';
+      thumb.innerHTML = `
+        <img src="${escapeAttr(img.image_url)}" alt="">
+        <button type="button" class="remove-photo-btn" title="Remove photo">✕</button>
+      `;
+      thumb.querySelector('.remove-photo-btn').addEventListener('click', () => deleteGalleryImage(img.id));
+      grid.appendChild(thumb);
+    });
+  }
+
+  async function handleAddPhoto(){
+    const input = document.getElementById('galleryFileInput');
+    const file = input.files[0];
+    if (!file){
+      showManageMessage('Choose a photo first.', true);
+      return;
+    }
+
+    const btn = document.getElementById('uploadPhotoBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${business.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error: uploadError } = await sb.storage
+      .from(GALLERY_BUCKET)
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+
+    if (uploadError){
+      btn.disabled = false;
+      btn.textContent = 'Upload photo';
+      showManageMessage('Could not upload photo: ' + uploadError.message, true);
+      return;
+    }
+
+    const { data: publicUrlData } = sb.storage.from(GALLERY_BUCKET).getPublicUrl(path);
+    const publicUrl = publicUrlData.publicUrl;
+
+    const { error: insertError } = await sb.from('gallery_images').insert({
+      business_id: business.id,
+      image_url: publicUrl
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Upload photo';
+
+    if (insertError){
+      showManageMessage('Photo uploaded but could not be saved: ' + insertError.message, true);
+      return;
+    }
+
+    input.value = '';
+    await loadGallery();
+    renderGalleryGrid();
+    showManageMessage('Photo added.', false);
+  }
+
+  async function deleteGalleryImage(id){
+    if (!confirm('Remove this photo?')) return;
+    const { error } = await sb.from('gallery_images').delete().eq('id', id);
+    if (error){
+      showManageMessage('Could not remove photo: ' + error.message, true);
+      return;
+    }
+    await loadGallery();
+    renderGalleryGrid();
+  }
+
+  function renderManageDays(){
+    const list = document.getElementById('manageDaysList');
+    const workingDays = business.working_days || [];
+    const openingHours = business.opening_hours || {};
+
+    list.innerHTML = '';
+    DAYS.forEach((day, i) => {
+      const isOn = workingDays.includes(day);
+      const hours = openingHours[day] || { open: '09:00', close: '17:00' };
+      const row = document.createElement('div');
+      row.className = 'day-row' + (isOn ? '' : ' disabled');
+      row.id = 'mday_' + i;
+      row.innerHTML = `
+        <div class="day-check">
+          <input type="checkbox" id="mday_check_${i}" ${isOn ? 'checked' : ''}>
+          <span>${day}</span>
+        </div>
+        <div class="day-times">
+          <input type="time" id="mday_open_${i}" value="${hours.open}">
+          <span>to</span>
+          <input type="time" id="mday_close_${i}" value="${hours.close}">
+        </div>
+      `;
+      row.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
+        row.classList.toggle('disabled', !e.target.checked);
+      });
+      list.appendChild(row);
+    });
+
+    document.getElementById('m_slot_interval').value = business.appointment_interval_minutes || 30;
+    document.getElementById('m_booking_approval').value = business.booking_approval || 'automatic';
+  }
+
+  async function saveAvailability(){
+    const btn = document.getElementById('saveAvailabilityBtn');
+    const workingDays = [];
+    const openingHours = {};
+
+    DAYS.forEach((day, i) => {
+      const checked = document.getElementById('mday_check_' + i).checked;
+      if (checked){
+        workingDays.push(day);
+        openingHours[day] = {
+          open: document.getElementById('mday_open_' + i).value,
+          close: document.getElementById('mday_close_' + i).value
+        };
+      }
+    });
+
+    if (workingDays.length === 0){
+      showManageMessage('Select at least one working day.', true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const { error } = await sb.from('businesses').update({
+      working_days: workingDays,
+      opening_hours: openingHours,
+      appointment_interval_minutes: parseInt(document.getElementById('m_slot_interval').value),
+      booking_approval: document.getElementById('m_booking_approval').value
+    }).eq('id', business.id);
+
+    btn.disabled = false;
+    btn.textContent = 'Save availability';
+
+    if (error){
+      showManageMessage('Could not save availability: ' + error.message, true);
+      return;
+    }
+
+    business.working_days = workingDays;
+    business.opening_hours = openingHours;
+    business.appointment_interval_minutes = parseInt(document.getElementById('m_slot_interval').value);
+    business.booking_approval = document.getElementById('m_booking_approval').value;
+    showManageMessage('Availability saved.', false);
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    window.location.href = 'login.html';
+  });
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+  function escapeAttr(str){
+    return escapeHtml(str).replace(/"/g, '&quot;');
+  }
+
+  init();
+</script>
+
+</body>
+</html>
